@@ -1,4 +1,6 @@
 
+import java.sql.Connection
+
 import akka.actor._
 import akka.stream._
 import akka.util.ByteString
@@ -23,4 +25,15 @@ object Utils {
   def download(url: String): Array[Byte] =
     getBody(ws.url(url).withFollowRedirects(true).get()).toArray
 
+
+  def getDbConnection(dbUrl: String): Connection = {
+    Class.forName("com.mysql.jdbc.Driver").newInstance()
+    java.sql.DriverManager.getConnection(dbUrl)
+  }
+
+  def getDbConnection: Connection =
+    getDbConnection(getProperty("dbUrl").get)
+
+  def getProperty(name: String): Option[String] =
+    Option(System.getProperty(name)).orElse(Option(System.getenv(name)))
 }
