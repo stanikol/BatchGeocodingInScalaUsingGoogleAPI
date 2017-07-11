@@ -9,7 +9,7 @@ case class Result(address_components: List[AddressComponent], geometry: Geometry
 case class Response(results: List[Result], status: String)
 
 // output
-case class Address(text: String, exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location])
+case class Address(text: String, response: String, exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location])
 
 object Test {
   implicit val addressComponentFormats = Json.format[AddressComponent]
@@ -21,8 +21,8 @@ object Test {
 
   def parseAddress(address: String): Option[Address] = {
     val url = s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(address, "UTF-8")}&key=AIzaSyAOcEY_1Y6q47MN-7SlZL8xQuHeIgwVaY8"
-    val text = new String(Utils.download(url))
-    val response = Json.parse(text).validate[Response].get
+    val responseText = new String(Utils.download(url))
+    val response = Json.parse(responseText).validate[Response].get
 
     val exactMath = response.results.length == 1 && response.status == "OK"
 
@@ -35,7 +35,7 @@ object Test {
       val country = result.address_components.find(_.types.contains("country")).map(_.short_name)
       val location = result.geometry.location
 
-      Address(address, exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location)
+      Address(address, responseText, exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location)
     }
   }
 
