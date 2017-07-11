@@ -1,0 +1,26 @@
+
+import akka.actor._
+import akka.stream._
+import akka.util.ByteString
+import play.api.libs.ws.WSResponse
+import play.api.libs.ws.ahc._
+
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
+
+object Utils {
+  implicit val system = ActorSystem()
+  implicit val materializer = ActorMaterializer()
+  val ws = AhcWSClient()
+
+  def getBody(future: Future[WSResponse]): ByteString = {
+    val response: WSResponse = Await.result(future, Duration.Inf)
+    if (response.status != 200)
+      throw new Exception(response.statusText)
+    response.bodyAsBytes
+  }
+
+  def download(url: String): Array[Byte] =
+    getBody(ws.url(url).withFollowRedirects(true).get()).toArray
+
+}
