@@ -1,29 +1,38 @@
 import play.api.libs.json._
 import java.net.URLEncoder
 
-// google json response
-case class AddressComponent(long_name: String, short_name: String, types: List[String])
-case class Location(lat: Float, lng: Float)
-case class Geometry(location: Option[Location], location_type: String)
-case class Result(address_components: List[AddressComponent], geometry: Geometry, formatted_address: String, place_id: String, types: List[String])
-case class Response(results: List[Result], status: String)
+object AddressParser {
+  // google json response
+  case class AddressComponent(long_name: String, short_name: String, types: List[String])
+  case class Location(lat: Float, lng: Float)
+  case class Geometry(location: Option[Location], location_type: String)
+  case class Result(address_components: List[AddressComponent], geometry: Geometry, formatted_address: String, place_id: String, types: List[String])
+  case class Response(results: List[Result], status: String)
 
-// information extracted
-case class Address(addressToQuery: String, googleResponse: String, exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location], formattedAddress: String)
+  // information extracted
+  case class ParsedAddress(exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location], formattedAddress: String)
+  case class QueryAndResult(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress)
 
-class AddressParser(googleApiKey: String) {
   // these "formats" define a default parser for the google response based on the field names
-  implicit val addressComponentFormats = Json.format[AddressComponent]
-  implicit val locationFormats = Json.format[Location]
-  implicit val geometryFormats = Json.format[Geometry]
-  implicit val resultFormats = Json.format[Result]
-  implicit val ResponseFormats = Json.format[Response]
+  implicit private val addressComponentFormats = Json.format[AddressComponent]
+  implicit private val locationFormats = Json.format[Location]
+  implicit private val geometryFormats = Json.format[Geometry]
+  implicit private val resultFormats = Json.format[Result]
+  implicit private val ResponseFormats = Json.format[Response]
 
-  def parseAddress(address: String): Option[Address] = {
-    val url = s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(address, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
-    val responseText = new String(Utils.download(url))
-    val response = Json.parse(responseText).validate[Response].get
+  def parseAddress(googleApiKey: String, unformattedAddress: String): QueryAndResult = {
+    val googleResponse = queryGoogle(googleApiKey, unformattedAddress)
+    val parsedAddress = parseAddressFromJsonResponse(googleResponse)
+    QueryAndResult(unformattedAddress, googleResponse, parsedAddress)
+  }
 
+  def queryGoogle(googleApiKey: String, unformattedAddress: String): String = {
+    val url = s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
+    new String(Utils.download(url))
+  }
+
+  def parseAddressFromJsonResponse(googleResponseString: String): ParsedAddress = {
+    val response = Json.parse(googleResponseString).validate[Response].get
     val exactMath = response.results.length == 1 && response.status == "OK"
 
     response.results.headOption.map { result =>
@@ -37,7 +46,8 @@ class AddressParser(googleApiKey: String) {
       val location = result.geometry.location
       val formattedAddress = result.formatted_address
 
-      Address(address, responseText, exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
-    }
+      ParsedAddress(exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
+    }.getOrElse(throw new Exception("..."))
   }
+
 }

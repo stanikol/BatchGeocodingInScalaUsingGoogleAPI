@@ -5,9 +5,7 @@ object ParserCmd {
 
     println("+++ START.")
 
-    val addressParser = new AddressParser(googleApiKey)
-
-    val address = addressParser.parseAddress(unformattedAddress)
+    val address = AddressParser.parseAddress(googleApiKey, unformattedAddress)
     println(address)
 
     println("+++ END.")

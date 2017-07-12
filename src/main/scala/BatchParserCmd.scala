@@ -9,18 +9,18 @@ object BatchParserCmd {
 
     println("+++ START.")
 
-    val addressParser = new AddressParser(googleApiKey)
-
     implicit val conn = Utils.getDbConnection(dbUrl)
 
-    def parseAddressAndSaveToDatabase(address: String) {
-      println(s"parseAddressAndSaveToDatabase: $address")
-      addressParser.parseAddress(address).foreach { parsedAddress =>
-        import parsedAddress._
-        val r: Int = SQL"update addresses set googleResponse=$googleResponse, exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where addressToQuery=$address"
-          .executeUpdate()
-        if (r != 1) println(s"error on $address")
-      }
+    def parseAddressAndSaveToDatabase(unformattedAddress: String) {
+      println(s"parseAddressAndSaveToDatabase: $unformattedAddress")
+
+      val googleResponse = AddressParser.queryGoogle(googleApiKey, unformattedAddress)
+      val parsedAddress = AddressParser.parseAddressFromJsonResponse(googleResponse)
+
+      import parsedAddress._
+      val r: Int = SQL"update addresses set googleResponse=$googleResponse, exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where addressToQuery=$unformattedAddress"
+        .executeUpdate()
+      if (r != 1) println(s"error on $unformattedAddress")
     }
 
     val addresses: List[String] =
