@@ -1,11 +1,5 @@
 import play.api.libs.json._
 import java.net.URLEncoder
-import java.sql.Connection
-
-import anorm.{SqlParser, _}
-
-import scala.util.Try
-
 
 // google json response
 case class AddressComponent(long_name: String, short_name: String, types: List[String])
@@ -17,16 +11,16 @@ case class Response(results: List[Result], status: String)
 // information extracted
 case class Address(addressToQuery: String, googleResponse: String, exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location], formattedAddress: String)
 
-object Test {
+class AddressParser(googleApiKey: String) {
+  // these "formats" define a default parser for the google response based on the field names
   implicit val addressComponentFormats = Json.format[AddressComponent]
   implicit val locationFormats = Json.format[Location]
   implicit val geometryFormats = Json.format[Geometry]
   implicit val resultFormats = Json.format[Result]
   implicit val ResponseFormats = Json.format[Response]
 
-
   def parseAddress(address: String): Option[Address] = {
-    val url = s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(address, "UTF-8")}&key=AIzaSyAOcEY_1Y6q47MN-7SlZL8xQuHeIgwVaY8"
+    val url = s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(address, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
     val responseText = new String(Utils.download(url))
     val response = Json.parse(responseText).validate[Response].get
 
@@ -45,27 +39,5 @@ object Test {
 
       Address(address, responseText, exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
     }
-  }
-
-  def parseAddressAndSaveToDatabase(address: String)(implicit conn: Connection) {
-    println(s"parseAddressAndSaveToDatabase: $address")
-    parseAddress(address).foreach { parsedAddress =>
-      import parsedAddress._
-      val r: Int = SQL"update addresses set googleResponse=$googleResponse, exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where addressToQuery=$address"
-        .executeUpdate()
-      if (r != 1) println(s"error on $address")
-    }
-  }
-
-  def main(args: Array[String]) {
-    println("+++ START.")
-
-    implicit val conn = Utils.getDbConnection
-    val addresses: List[String] =
-      SQL"select addressToQuery from addresses where googleResponse is null limit 1000".as(SqlParser.str(1).*)
-
-    addresses.foreach(a => Try(parseAddressAndSaveToDatabase(a)))
-
-    println("+++ END.")
   }
 }
