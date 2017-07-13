@@ -1,6 +1,6 @@
 import java.sql.Connection
 
-import AddressParser.ParsedAddress
+import AddressParser.{OverQueryLimitGoogleMapsApiException, ParsedAddress}
 import Utils._
 import anorm.{SqlParser, _}
 
@@ -9,10 +9,13 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
+  var overQueryLimit = false
+
   private def getAddressesFromDatabase: List[String] =
     SQL"select unformattedAddress from addresses where googleResponse is null and parseGoogleResponseStatus is null limit 10".as(SqlParser.str(1).*)
 
   private def queryGoogle(unformattedAddress: String): Future[String] = {
+    if (overQueryLimit) throw new OverQueryLimitGoogleMapsApiException()  // todo: better way to achieve this
     println(s"+++ queryGoogle: $unformattedAddress")
     ws.url(AddressParser.url(googleApiKey, unformattedAddress))
       .withFollowRedirects(true)
@@ -43,7 +46,10 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
         val parsedAddress = AddressParser.parseAddressFromJsonResponse(googleResponse)
         saveParsedAddressToDatabase(unformattedAddress, googleResponse, parsedAddress)
       }
-      .recover { case t: Throwable => saveErrorToDatabase(unformattedAddress, t); () }
+      .recover {
+        case t: OverQueryLimitGoogleMapsApiException => overQueryLimit = true; ()
+        case t: Throwable => saveErrorToDatabase(unformattedAddress, t); ()
+      }
   }
 
   def run() {

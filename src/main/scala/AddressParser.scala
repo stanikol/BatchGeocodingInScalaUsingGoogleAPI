@@ -13,6 +13,8 @@ object AddressParser {
   case class ParsedAddress(exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location], formattedAddress: String)
   case class QueryAndResult(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress)
 
+  class OverQueryLimitGoogleMapsApiException extends Exception
+
   // these "formats" define a default parser for the google response based on the field names
   implicit private val addressComponentFormats = Json.format[AddressComponent]
   implicit private val locationFormats = Json.format[Location]
@@ -31,6 +33,10 @@ object AddressParser {
 
   def parseAddressFromJsonResponse(googleResponseString: String): ParsedAddress = {
     val response: Response = Json.parse(googleResponseString).validate[Response].get
+
+    if (response.status == "OVER_QUERY_LIMIT")
+      throw new OverQueryLimitGoogleMapsApiException()
+
     val exactMath = response.results.length == 1 && response.status == "OK"
 
     response.results.headOption match {
