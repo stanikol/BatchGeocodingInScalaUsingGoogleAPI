@@ -21,7 +21,7 @@ object AddressParser {
   implicit private val ResponseFormats = Json.format[Response]
 
   def parseAddress(googleApiKey: String, unformattedAddress: String): QueryAndResult = {
-    val googleResponse = new String(Utils.download(url(googleApiKey, unformattedAddress)))
+    val googleResponse = Utils.download(url(googleApiKey, unformattedAddress))
     val parsedAddress = parseAddressFromJsonResponse(googleResponse)
     QueryAndResult(unformattedAddress, googleResponse, parsedAddress)
   }
