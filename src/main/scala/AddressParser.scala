@@ -33,19 +33,21 @@ object AddressParser {
     val response: Response = Json.parse(googleResponseString).validate[Response].get
     val exactMath = response.results.length == 1 && response.status == "OK"
 
-    response.results.headOption.map { result =>
-      def addressComponent(typeId: String) = result.address_components.find(_.types.contains(typeId))
-      val locality = addressComponent("locality").map(_.long_name)
-      val areaLevel1 = addressComponent("administrative_area_level_1").map(_.long_name)
-      val areaLevel2 = addressComponent("administrative_area_level_2").map(_.long_name)
-      val areaLevel3 = addressComponent("administrative_area_level_3").map(_.long_name)
-      val postalCode = addressComponent("postal_code").map(_.long_name)
-      val country = addressComponent("country").map(_.short_name)
-      val location = result.geometry.location
-      val formattedAddress = result.formatted_address
+    response.results.headOption match {
+      case Some(result) =>
+        def addressComponent(typeId: String) = result.address_components.find(_.types.contains(typeId))
 
-      ParsedAddress(exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
-    }.getOrElse(throw new Exception(response.toString))
+        val locality = addressComponent("locality").map(_.long_name)
+        val areaLevel1 = addressComponent("administrative_area_level_1").map(_.long_name)
+        val areaLevel2 = addressComponent("administrative_area_level_2").map(_.long_name)
+        val areaLevel3 = addressComponent("administrative_area_level_3").map(_.long_name)
+        val postalCode = addressComponent("postal_code").map(_.long_name)
+        val country = addressComponent("country").map(_.short_name)
+        val location = result.geometry.location
+        val formattedAddress = result.formatted_address
+
+        ParsedAddress(exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
+      case None => throw new Exception("zero results")
+    }
   }
-
 }
