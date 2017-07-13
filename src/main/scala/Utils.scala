@@ -25,6 +25,10 @@ object Utils {
   def download(url: String): Array[Byte] =
     getBody(ws.url(url).withFollowRedirects(true).get()).toArray
 
+  def wsTerminate() {
+    Utils.system.terminate()
+    Utils.ws.close()
+  }
 
   def getDbConnection(dbUrl: String): Connection = {
     Class.forName("com.mysql.jdbc.Driver").newInstance()

@@ -21,15 +21,13 @@ object AddressParser {
   implicit private val ResponseFormats = Json.format[Response]
 
   def parseAddress(googleApiKey: String, unformattedAddress: String): QueryAndResult = {
-    val googleResponse = queryGoogle(googleApiKey, unformattedAddress)
+    val googleResponse = new String(Utils.download(url(googleApiKey, unformattedAddress)))
     val parsedAddress = parseAddressFromJsonResponse(googleResponse)
     QueryAndResult(unformattedAddress, googleResponse, parsedAddress)
   }
 
-  def queryGoogle(googleApiKey: String, unformattedAddress: String): String = {
-    val url = s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
-    new String(Utils.download(url))
-  }
+  def url(googleApiKey: String, unformattedAddress: String): String =
+    s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
   def parseAddressFromJsonResponse(googleResponseString: String): ParsedAddress = {
     val response = Json.parse(googleResponseString).validate[Response].get
