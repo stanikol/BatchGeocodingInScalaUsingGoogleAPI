@@ -11,8 +11,10 @@ import scala.concurrent.{Await, Future}
 class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   var overQueryLimit = false
 
-  private def getAddressesFromDatabase: List[String] =
-    SQL"select unformattedAddress from addresses where googleResponse is null and parseGoogleResponseStatus is null limit 10".as(SqlParser.str(1).*)
+  // query google
+
+  private def getAddressesWithEmptyGoogleResponseFromDatabase: List[String] =
+    SQL"select unformattedAddress from addresses where googleResponse is null limit 10".as(SqlParser.str(1).*)
 
   private def queryGoogle(unformattedAddress: String): Future[String] = {
     if (overQueryLimit) throw new OverQueryLimitGoogleMapsApiException()  // todo: better way to achieve this
@@ -23,28 +25,16 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
       .map(_.body)
   }
 
-  private def saveParsedAddressToDatabase(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress) {
-    println(s"+++ saveToDatabase: $unformattedAddress, $parsedAddress")
-    import parsedAddress._
-    val numUpdatedRows = SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus='OK', exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where unformattedAddress=$unformattedAddress"
-      .executeUpdate()
-    if (numUpdatedRows != 1) throw new Exception(s"error saving to database. numUpdatedRows $numUpdatedRows != 1")
+  private def saveGoogleResponseToDatabase(unformattedAddress: String, googleResponse: String) {
+    println(s"+++ saveGoogleResponseToDatabase: $unformattedAddress")
+    executeOneRowUpdate(SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus=null, exactMatch=null, locality=null, areaLevel1=null, areaLevel2=null, areaLevel3=null, postalCode=null, country=null, lat=null, lng=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
   }
 
-  private def saveErrorToDatabase(unformattedAddress: String, exception: Throwable) {
-    println(s"+++ saveErrorToDatabase: $unformattedAddress, $exception")
-    val numUpdatedRows = SQL"update addresses set parseGoogleResponseStatus=${exception.toString} where unformattedAddress=$unformattedAddress"
-      .executeUpdate()
-    if (numUpdatedRows != 1) throw new Exception(s"error saving to database. numUpdatedRows $numUpdatedRows != 1")
-  }
-
-  private def parseAddressAndSaveToDatabase(unformattedAddress: String): Future[Unit] = {
-    println(s"+++ parseAddressAndSaveToDatabase: $unformattedAddress")
-
+  private def queryGoogleAndSaveToDatabaseAndParse(unformattedAddress: String): Future[Unit] = {
     queryGoogle(unformattedAddress)
       .map { googleResponse =>
-        val parsedAddress = AddressParser.parseAddressFromJsonResponse(googleResponse)
-        saveParsedAddressToDatabase(unformattedAddress, googleResponse, parsedAddress)
+        saveGoogleResponseToDatabase(unformattedAddress, googleResponse)
+        parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
       }
       .recover {
         case t: OverQueryLimitGoogleMapsApiException => overQueryLimit = true; ()
@@ -52,11 +42,51 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
       }
   }
 
+  // parse google response
+
+  private def getAddressesWithEmptyParseGoogleResponseStatusFromDatabase: List[(String, String)] =
+    SQL"select unformattedAddress, googleResponse from addresses where googleResponse is not null and parseGoogleResponseStatus is null"
+      .as((SqlParser.str(1) ~ SqlParser.str(2)).*).map(SqlParser.flatten)
+
+  private def saveParsedAddressToDatabase(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress) {
+    println(s"+++ saveParsedAddressToDatabase: $unformattedAddress, $parsedAddress")
+    import parsedAddress._
+    executeOneRowUpdate(SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus='OK', exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where unformattedAddress=$unformattedAddress")
+  }
+
+  private def saveErrorToDatabase(unformattedAddress: String, exception: Throwable) {
+    println(s"+++ saveErrorToDatabase: $unformattedAddress, $exception")
+    executeOneRowUpdate(SQL"update addresses set parseGoogleResponseStatus=${exception.toString} where unformattedAddress=$unformattedAddress")
+  }
+
+  private def parseAddressAndSaveToDatabase(unformattedAddress: String, googleResponse: String) {
+    println(s"+++ parseAddressAndSaveToDatabase: $unformattedAddress")
+
+    try {
+        val parsedAddress = AddressParser.parseAddressFromJsonResponse(googleResponse)
+        saveParsedAddressToDatabase(unformattedAddress, googleResponse, parsedAddress)
+      } catch {
+        case t: OverQueryLimitGoogleMapsApiException => overQueryLimit = true; ()
+        case t: Throwable => saveErrorToDatabase(unformattedAddress, t); ()
+      }
+  }
+
+  private def parseAddressesAndSaveToDatabase() {
+    getAddressesWithEmptyParseGoogleResponseStatusFromDatabase.foreach { case (unformattedAddress, googleResponse) =>
+      parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
+    }
+  }
+
+  // we can set parseGoogleResponseStatus to null to recompute parseAddressFromJsonResponse, without the need to re-query google (which costs money)
+  // we compute parseAddressFromJsonResponse just after each google query,
+  // but we call also parseAddressesAndSaveToDatabase at the beginning and at the end
   def run() {
     val futures: List[Future[Unit]] =
-      getAddressesFromDatabase.map(parseAddressAndSaveToDatabase)
+      Future(parseAddressesAndSaveToDatabase()) :: getAddressesWithEmptyGoogleResponseFromDatabase.map(queryGoogleAndSaveToDatabaseAndParse)
 
     Await.result(Future.sequence(futures), Duration.Inf)
+
+    parseAddressesAndSaveToDatabase()
   }
 }
 

@@ -2,6 +2,7 @@ import java.sql.Connection
 
 import akka.actor._
 import akka.stream._
+import anorm.{Row, SimpleSql}
 import play.api.libs.ws.WSResponse
 import play.api.libs.ws.ahc._
 
@@ -38,4 +39,9 @@ object Utils {
 
   def getProperty(name: String): Option[String] =
     Option(System.getProperty(name)).orElse(Option(System.getenv(name)))
+
+  def executeOneRowUpdate(sql: SimpleSql[Row])(implicit conn: Connection) {
+    val numUpdatedRows = sql.executeUpdate()
+    if (numUpdatedRows != 1) throw new Exception(s"error saving to database. numUpdatedRows $numUpdatedRows != 1")
+  }
 }
