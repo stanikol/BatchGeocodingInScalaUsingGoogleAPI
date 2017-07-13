@@ -1,7 +1,7 @@
 import java.sql.Connection
 
 import AddressParser.ParsedAddress
-import Utils.ws
+import Utils._
 import anorm.{SqlParser, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -10,7 +10,7 @@ import scala.concurrent.{Await, Future}
 
 class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   private def getAddressesFromDatabase: List[String] =
-    SQL"select addressToQuery from addresses where googleResponse is null limit 1000".as(SqlParser.str(1).*)
+    SQL"select addressToQuery from addresses where googleResponse is null limit 10".as(SqlParser.str(1).*)
 
   private def queryGoogle(unformattedAddress: String) = {
     println(s"+++ queryGoogle: $unformattedAddress")
@@ -39,7 +39,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
     val futures: List[Future[Unit]] =
       getAddressesFromDatabase.map(parseAddressAndSaveToDatabase)
 
-    Await.result(Future.sequence(futures), Duration.Inf)
+    Await.result(Future.sequence(futures.map(ignoreFutureException)), Duration.Inf)
   }
 }
 

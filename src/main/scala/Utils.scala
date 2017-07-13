@@ -8,7 +8,7 @@ import play.api.libs.ws.WSResponse
 import play.api.libs.ws.ahc._
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object Utils {
   implicit val system = ActorSystem()
@@ -29,6 +29,9 @@ object Utils {
     Utils.system.terminate()
     Utils.ws.close()
   }
+
+  def ignoreFutureException(f: Future[Unit])(implicit ec: ExecutionContext): Future[Unit] =
+    f.recover { case t: Throwable => t.printStackTrace(); () }
 
   def getDbConnection(dbUrl: String): Connection = {
     Class.forName("com.mysql.jdbc.Driver").newInstance()

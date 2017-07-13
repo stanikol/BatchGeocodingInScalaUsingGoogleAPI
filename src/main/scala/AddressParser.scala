@@ -30,7 +30,7 @@ object AddressParser {
     s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
   def parseAddressFromJsonResponse(googleResponseString: String): ParsedAddress = {
-    val response = Json.parse(googleResponseString).validate[Response].get
+    val response: Response = Json.parse(googleResponseString).validate[Response].get
     val exactMath = response.results.length == 1 && response.status == "OK"
 
     response.results.headOption.map { result =>
@@ -45,7 +45,7 @@ object AddressParser {
       val formattedAddress = result.formatted_address
 
       ParsedAddress(exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
-    }.getOrElse(throw new Exception("..."))
+    }.getOrElse(throw new Exception(response.toString))
   }
 
 }
