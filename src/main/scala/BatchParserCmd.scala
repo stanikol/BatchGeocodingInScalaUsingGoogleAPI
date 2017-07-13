@@ -10,7 +10,7 @@ import scala.concurrent.{Await, Future}
 
 class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   private def getAddressesFromDatabase: List[String] =
-    SQL"select addressToQuery from addresses where googleResponse is null limit 10".as(SqlParser.str(1).*)
+    SQL"select unformattedAddress from addresses where googleResponse is null and parseGoogleResponseStatus is null limit 10".as(SqlParser.str(1).*)
 
   private def queryGoogle(unformattedAddress: String): Future[String] = {
     println(s"+++ queryGoogle: $unformattedAddress")
@@ -20,12 +20,19 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
       .map(_.body)
   }
 
-  private def saveToDatabase(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress) {
+  private def saveParsedAddressToDatabase(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress) {
     println(s"+++ saveToDatabase: $unformattedAddress, $parsedAddress")
     import parsedAddress._
-    val r: Int = SQL"update addresses set googleResponse=$googleResponse, exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where addressToQuery=$unformattedAddress"
+    val numUpdatedRows = SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus='OK', exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where unformattedAddress=$unformattedAddress"
       .executeUpdate()
-    if (r != 1) throw new Exception(s"error saving to database. num rows modified $r != 1")
+    if (numUpdatedRows != 1) throw new Exception(s"error saving to database. numUpdatedRows $numUpdatedRows != 1")
+  }
+
+  private def saveErrorToDatabase(unformattedAddress: String, exception: Throwable) {
+    println(s"+++ saveErrorToDatabase: $unformattedAddress, $exception")
+    val numUpdatedRows = SQL"update addresses set parseGoogleResponseStatus=${exception.toString} where unformattedAddress=$unformattedAddress"
+      .executeUpdate()
+    if (numUpdatedRows != 1) throw new Exception(s"error saving to database. numUpdatedRows $numUpdatedRows != 1")
   }
 
   private def parseAddressAndSaveToDatabase(unformattedAddress: String): Future[Unit] = {
@@ -34,9 +41,9 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
     queryGoogle(unformattedAddress)
       .map { googleResponse =>
         val parsedAddress = AddressParser.parseAddressFromJsonResponse(googleResponse)
-        saveToDatabase(unformattedAddress, googleResponse, parsedAddress)
+        saveParsedAddressToDatabase(unformattedAddress, googleResponse, parsedAddress)
       }
-      .recover { case t: Throwable => println(s"+++ error on address = '$unformattedAddress', e = $t"); () }
+      .recover { case t: Throwable => saveErrorToDatabase(unformattedAddress, t); () }
   }
 
   def run() {
