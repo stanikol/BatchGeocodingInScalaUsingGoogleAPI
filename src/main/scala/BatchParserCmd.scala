@@ -13,8 +13,8 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
 
   // query google
 
-  private def getAddressesWithEmptyGoogleResponseFromDatabase: List[String] =
-    SQL"select unformattedAddress from addresses where googleResponse is null limit 10".as(SqlParser.str(1).*)
+  private def getAddressesWithEmptyGoogleResponseFromDatabase(maxGoogleQueries: Int): List[String] =
+    SQL"select unformattedAddress from addresses where googleResponse is null limit $maxGoogleQueries".as(SqlParser.str(1).*)
 
   private def queryGoogle(unformattedAddress: String): Future[String] = {
     if (overQueryLimit) throw new OverQueryLimitGoogleMapsApiException()  // todo: better way to achieve this
@@ -80,9 +80,9 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   // we can set parseGoogleResponseStatus to null to recompute parseAddressFromJsonResponse, without the need to re-query google (which costs money)
   // we compute parseAddressFromJsonResponse just after each google query,
   // but we call also parseAddressesAndSaveToDatabase at the beginning and at the end
-  def run() {
+  def run(maxGoogleQueries: Int) {
     val futures: List[Future[Unit]] =
-      Future(parseAddressesAndSaveToDatabase()) :: getAddressesWithEmptyGoogleResponseFromDatabase.map(queryGoogleAndSaveToDatabaseAndParse)
+      Future(parseAddressesAndSaveToDatabase()) :: getAddressesWithEmptyGoogleResponseFromDatabase(maxGoogleQueries).map(queryGoogleAndSaveToDatabaseAndParse)
 
     Await.result(Future.sequence(futures), Duration.Inf)
 
@@ -93,14 +93,15 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
 object BatchParserCmd {
   def main(args: Array[String]) {
     try {
-      val googleApiKey = args(0)
-      val dbUrl = args(1)
+      val maxGoogleQueries = args(0).toInt
+      val googleApiKey = args(1)
+      val dbUrl = args(2)
 
       println("+++ START.")
 
       val conn = Utils.getDbConnection(dbUrl)
 
-      new BatchParserCmd(googleApiKey, conn).run()
+      new BatchParserCmd(googleApiKey, conn).run(maxGoogleQueries)
 
       println("+++ END.")
     } finally {
