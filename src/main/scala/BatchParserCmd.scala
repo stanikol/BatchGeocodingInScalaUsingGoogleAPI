@@ -10,7 +10,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
-  var overQueryLimit = false
+  var overQueryLimitException: OverQueryLimitGoogleMapsApiException = _
   var numErrors = 0
   val maxNumErrors = 10
 
@@ -23,7 +23,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
 
   private def queryGoogle(unformattedAddress: String): Future[String] = {
     // todo: better way to achieve these two lines
-    if (overQueryLimit) throw new OverQueryLimitGoogleMapsApiException()
+    if (overQueryLimitException != null) throw overQueryLimitException
     if (numErrors > maxNumErrors) throw new TooManyExceptions()
 
     println(s"+++ queryGoogle: $unformattedAddress")
@@ -41,13 +41,12 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   private def queryGoogleAddressAndSaveToDatabaseAndParse(unformattedAddress: String): Future[Unit] = {
     queryGoogle(unformattedAddress)
       .map { googleResponse =>
-        if (AddressParser.statusFromJsonResponse(googleResponse) == AddressParser.OVER_QUERY_LIMIT_STATUS)
-          throw new OverQueryLimitGoogleMapsApiException
+        AddressParser.checkOverQueryLimitFromJsonResponse(googleResponse)
         saveGoogleResponseToDatabase(unformattedAddress, googleResponse)
         parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
       }
       .recover {
-        case t: OverQueryLimitGoogleMapsApiException => overQueryLimit = true; ()
+        case t: OverQueryLimitGoogleMapsApiException => overQueryLimitException = t; ()
         case t: TooManyExceptions => ()
         case t: ConnectException => numErrors = numErrors + 1; t.printStackTrace(); ()
         case t: Throwable => saveErrorToDatabase(unformattedAddress, t); ()
@@ -78,7 +77,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
         val parsedAddress = AddressParser.parseAddressFromJsonResponse(googleResponse)
         saveParsedAddressToDatabase(unformattedAddress, googleResponse, parsedAddress)
       } catch {
-        case t: OverQueryLimitGoogleMapsApiException => overQueryLimit = true; ()
+        case t: OverQueryLimitGoogleMapsApiException => overQueryLimitException = t; ()
         case t: Throwable => saveErrorToDatabase(unformattedAddress, t); ()
       }
   }

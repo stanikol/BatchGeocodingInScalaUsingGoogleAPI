@@ -14,7 +14,7 @@ object AddressParser {
   case class ParsedAddress(exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location], formattedAddress: String)
   case class QueryAndResult(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress)
 
-  class OverQueryLimitGoogleMapsApiException extends Exception
+  class OverQueryLimitGoogleMapsApiException(message: String) extends Exception(message)
 
   val OVER_QUERY_LIMIT_STATUS = "OVER_QUERY_LIMIT"
 
@@ -35,16 +35,17 @@ object AddressParser {
   def url(googleApiKey: String, unformattedAddress: String): String =
     s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
-  def statusFromJsonResponse(googleResponseString: String): String = {
+  def checkOverQueryLimitFromJsonResponse(googleResponseString: String) {
     val response: StatusResponse = Json.parse(googleResponseString).validate[StatusResponse].get
-    response.status
+    if (response.status == OVER_QUERY_LIMIT_STATUS)
+      throw new OverQueryLimitGoogleMapsApiException(response.error_message.getOrElse(""))
   }
 
   def parseAddressFromJsonResponse(googleResponseString: String): ParsedAddress = {
     val response: Response = Json.parse(googleResponseString).validate[Response].get
 
     if (response.status == OVER_QUERY_LIMIT_STATUS)
-      throw new OverQueryLimitGoogleMapsApiException()
+      throw new OverQueryLimitGoogleMapsApiException(response.error_message.getOrElse(""))
 
     val exactMath = response.results.length == 1 && response.status == "OK"
 
