@@ -1,3 +1,4 @@
+import java.net.ConnectException
 import java.sql.Connection
 
 import AddressParser.{OverQueryLimitGoogleMapsApiException, ParsedAddress}
@@ -10,6 +11,10 @@ import scala.concurrent.{Await, Future}
 
 class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   var overQueryLimit = false
+  var numErrors = 0
+  val maxNumErrors = 10
+
+  class TooManyExceptions extends Exception
 
   // query google
 
@@ -17,7 +22,10 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
     SQL"select unformattedAddress from addresses where googleResponse is null limit $maxGoogleQueries".as(SqlParser.str(1).*)
 
   private def queryGoogle(unformattedAddress: String): Future[String] = {
-    if (overQueryLimit) throw new OverQueryLimitGoogleMapsApiException()  // todo: better way to achieve this
+    // todo: better way to achieve these two lines
+    if (overQueryLimit) throw new OverQueryLimitGoogleMapsApiException()
+    if (numErrors > maxNumErrors) throw new TooManyExceptions()
+
     println(s"+++ queryGoogle: $unformattedAddress")
     ws.url(AddressParser.url(googleApiKey, unformattedAddress))
       .withFollowRedirects(true)
@@ -30,14 +38,18 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
     executeOneRowUpdate(SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus=null, exactMatch=null, locality=null, areaLevel1=null, areaLevel2=null, areaLevel3=null, postalCode=null, country=null, lat=null, lng=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
   }
 
-  private def queryGoogleAndSaveToDatabaseAndParse(unformattedAddress: String): Future[Unit] = {
+  private def queryGoogleAddressAndSaveToDatabaseAndParse(unformattedAddress: String): Future[Unit] = {
     queryGoogle(unformattedAddress)
       .map { googleResponse =>
+        if (AddressParser.statusFromJsonResponse(googleResponse) == AddressParser.OVER_QUERY_LIMIT_STATUS)
+          throw new OverQueryLimitGoogleMapsApiException
         saveGoogleResponseToDatabase(unformattedAddress, googleResponse)
         parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
       }
       .recover {
         case t: OverQueryLimitGoogleMapsApiException => overQueryLimit = true; ()
+        case t: TooManyExceptions => ()
+        case t: ConnectException => numErrors = numErrors + 1; t.printStackTrace(); ()
         case t: Throwable => saveErrorToDatabase(unformattedAddress, t); ()
       }
   }
@@ -71,6 +83,10 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
       }
   }
 
+  private def queryGoogleAddressesAndSaveToDatabaseAndParse(maxGoogleQueries: Int): List[Future[Unit]] = {
+    getAddressesWithEmptyGoogleResponseFromDatabase(maxGoogleQueries).map(queryGoogleAddressAndSaveToDatabaseAndParse)
+  }
+
   private def parseAddressesAndSaveToDatabase() {
     getAddressesWithEmptyParseGoogleResponseStatusFromDatabase.foreach { case (unformattedAddress, googleResponse) =>
       parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
@@ -82,7 +98,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   // but we call also parseAddressesAndSaveToDatabase at the beginning and at the end
   def run(maxGoogleQueries: Int) {
     val futures: List[Future[Unit]] =
-      Future(parseAddressesAndSaveToDatabase()) :: getAddressesWithEmptyGoogleResponseFromDatabase(maxGoogleQueries).map(queryGoogleAndSaveToDatabaseAndParse)
+      Future(parseAddressesAndSaveToDatabase()) :: queryGoogleAddressesAndSaveToDatabaseAndParse(maxGoogleQueries)
 
     Await.result(Future.sequence(futures), Duration.Inf)
 
