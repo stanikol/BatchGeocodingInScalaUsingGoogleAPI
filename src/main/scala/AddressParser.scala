@@ -23,9 +23,7 @@ object AddressParser {
 
   case class QueryAndResult(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress)
 
-  class OverQueryLimitGoogleMapsApiException(message: String) extends Exception(message)
-
-  val OVER_QUERY_LIMIT_STATUS = "OVER_QUERY_LIMIT"
+  class FatalGoogleMapsError(message: String) extends Exception(message)
 
   // these "formats" define a default parser for the google response based on the field names
   implicit private val addressComponentFormats = Json.format[AddressComponent]
@@ -46,17 +44,20 @@ object AddressParser {
 
   def checkOverQueryLimitFromJsonResponse(googleResponseString: String) {
     val response: StatusResponse = Json.parse(googleResponseString).validate[StatusResponse].get
-    if (response.status == OVER_QUERY_LIMIT_STATUS)
-      throw new OverQueryLimitGoogleMapsApiException(response.error_message.getOrElse(""))
+    checkStatusFromJsonResponse(response.status, response.error_message)
+  }
+
+  def checkStatusFromJsonResponse(status: String, error_message: Option[String]) {
+    if (status != "OK")
+      throw new FatalGoogleMapsError(status + ": " + error_message.getOrElse(""))
   }
 
   def parseAddressFromJsonResponse(googleResponseString: String): ParsedAddress = {
     val response: Response = Json.parse(googleResponseString).validate[Response].get
 
-    if (response.status == OVER_QUERY_LIMIT_STATUS)
-      throw new OverQueryLimitGoogleMapsApiException(response.error_message.getOrElse(""))
+    checkStatusFromJsonResponse(response.status, response.error_message)
 
-    val exactMath = response.results.length == 1 && response.status == "OK"
+    val exactMath = response.results.length == 1
 
     response.results.headOption match {
       case Some(result) =>

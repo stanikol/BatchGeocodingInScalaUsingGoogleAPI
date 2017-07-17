@@ -26,7 +26,7 @@ $ export googleApiKey="AIzaSyBwG-Zo6me1yd6V2_ZO7L-3K8A0U1122LA"   # update with 
 $ sbt "runMain ParserCmd $googleApiKey \"Av du Rond-Point 1, Lausanne, Switzerland\""
 
 - parsedAddress:
-| - exactMath: true               // if results.length == 1 && status == "OK"
+| - exactMath: true               // if results.length == 1
 | - locality: Lausanne
 | - areaLevel1: Vaud
 | - areaLevel2: Lausanne

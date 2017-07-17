@@ -1,7 +1,7 @@
 import java.net.ConnectException
 import java.sql.Connection
 
-import AddressParser.{OverQueryLimitGoogleMapsApiException, ParsedAddress}
+import AddressParser.{FatalGoogleMapsError, ParsedAddress}
 import Utils._
 import anorm.{SqlParser, _}
 
@@ -10,7 +10,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
-  var overQueryLimitException: OverQueryLimitGoogleMapsApiException = _
+  var fatalGoogleMapsError: FatalGoogleMapsError = _
   var numErrors = 0
   val maxNumErrors = 10
 
@@ -23,7 +23,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
 
   private def queryGoogle(unformattedAddress: String): Future[String] = {
     // todo: better way to achieve these two lines
-    if (overQueryLimitException != null) throw overQueryLimitException
+    if (fatalGoogleMapsError != null) throw fatalGoogleMapsError
     if (numErrors > maxNumErrors) throw new TooManyExceptions()
 
     println(s"+++ queryGoogle: $unformattedAddress")
@@ -46,7 +46,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
         parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
       }
       .recover {
-        case t: OverQueryLimitGoogleMapsApiException => overQueryLimitException = t; ()
+        case t: FatalGoogleMapsError => fatalGoogleMapsError = t; ()
         case t: TooManyExceptions => ()
         case t: ConnectException => numErrors = numErrors + 1; t.printStackTrace(); ()
         case t: Throwable => saveErrorToDatabase(unformattedAddress, t); ()
@@ -77,7 +77,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
         val parsedAddress = AddressParser.parseAddressFromJsonResponse(googleResponse)
         saveParsedAddressToDatabase(unformattedAddress, googleResponse, parsedAddress)
       } catch {
-        case t: OverQueryLimitGoogleMapsApiException => overQueryLimitException = t; ()
+        case t: FatalGoogleMapsError => fatalGoogleMapsError = t; ()
         case t: Throwable => saveErrorToDatabase(unformattedAddress, t); ()
       }
   }
