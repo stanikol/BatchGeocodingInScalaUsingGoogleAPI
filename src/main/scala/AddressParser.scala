@@ -1,5 +1,6 @@
-import play.api.libs.json._
 import java.net.URLEncoder
+
+import play.api.libs.json._
 
 object AddressParser {
   // google json response
@@ -11,7 +12,15 @@ object AddressParser {
   case class StatusResponse(error_message: Option[String], status: String)
 
   // information extracted
-  case class ParsedAddress(exactMath: Boolean, locality: Option[String], areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String], postalCode: Option[String], country: Option[String], location: Option[Location], formattedAddress: String)
+  case class ParsedAddress(
+                            exactMath: Boolean,
+                            locality: Option[String],
+                            areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String],
+                            postalCode: Option[String],
+                            country: Option[String],
+                            location: Option[Location],
+                            formattedAddress: String)
+
   case class QueryAndResult(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress)
 
   class OverQueryLimitGoogleMapsApiException(message: String) extends Exception(message)

@@ -1,9 +1,8 @@
-name := "patstatAddressParser"
+name := "BatchGeocodingInScalaUsingGoogleAPI"
 
 version := "1.0"
 
 scalaVersion := "2.11.11"
-
 
 libraryDependencies ++= Seq(
   "com.typesafe.play" %% "anorm" % "2.5.2",

@@ -7,7 +7,7 @@ import play.api.libs.ws.WSResponse
 import play.api.libs.ws.ahc._
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, Future}
 
 object Utils {
   implicit val system = ActorSystem()
