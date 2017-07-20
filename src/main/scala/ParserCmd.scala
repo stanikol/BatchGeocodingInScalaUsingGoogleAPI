@@ -1,14 +1,20 @@
 import sext._
 
-object ParserCmd extends App {
-  try {
-    val googleApiKey = args(0)
-    val unformattedAddress = args(1)
-
+object ParserCmd {
+  def run(googleApiKey: String, unformattedAddress: String) {
     val queryAndResult = AddressParser.parseAddress(googleApiKey, unformattedAddress)
     println(queryAndResult.valueTreeString)
+  }
 
-  } finally {
-    Utils.wsTerminate()
+  def main(args: Array[String]) {
+    try {
+      val googleApiKey = args(0)
+      val unformattedAddress = args(1)
+
+      run (googleApiKey, unformattedAddress)
+
+    } finally {
+      Utils.wsTerminate()
+    }
   }
 }

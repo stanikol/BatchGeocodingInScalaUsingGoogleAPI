@@ -106,19 +106,27 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
 }
 
 object BatchParserCmd {
+  def run(maxGoogleQueries: Int, googleApiKey: String, dbUrl: String) {
+    println("+++ START.")
+
+    val conn = Utils.getDbConnection(dbUrl)
+
+    try {
+      new BatchParserCmd(googleApiKey, conn).run(maxGoogleQueries)
+    } finally {
+      conn.close()
+    }
+
+    println("+++ END.")
+  }
+
   def main(args: Array[String]) {
     try {
       val maxGoogleQueries = args(0).toInt
       val googleApiKey = args(1)
       val dbUrl = args(2)
 
-      println("+++ START.")
-
-      val conn = Utils.getDbConnection(dbUrl)
-
-      new BatchParserCmd(googleApiKey, conn).run(maxGoogleQueries)
-
-      println("+++ END.")
+      run(maxGoogleQueries, googleApiKey, dbUrl)
     } finally {
       Utils.wsTerminate()
     }
