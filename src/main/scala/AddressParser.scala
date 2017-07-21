@@ -48,7 +48,7 @@ object AddressParser {
   }
 
   def checkStatusFromJsonResponse(status: String, error_message: Option[String]) {
-    if (status != "OK")
+    if (status != "OK" && status != "ZERO_RESULTS")
       throw new FatalGoogleMapsError(status + ": " + error_message.getOrElse(""))
   }
 
