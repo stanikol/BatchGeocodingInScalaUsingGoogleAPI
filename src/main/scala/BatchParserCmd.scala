@@ -41,9 +41,13 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   private def queryGoogleAddressAndSaveToDatabaseAndParse(unformattedAddress: String): Future[Unit] = {
     queryGoogle(unformattedAddress)
       .map { googleResponse =>
-        AddressParser.checkOverQueryLimitFromJsonResponse(googleResponse)
-        saveGoogleResponseToDatabase(unformattedAddress, googleResponse)
-        parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
+        try {  // todo: how to do this nicer? (to print the googleResponse in case of exception)
+          AddressParser.checkOverQueryLimitFromJsonResponse(googleResponse)
+          saveGoogleResponseToDatabase(unformattedAddress, googleResponse)
+          parseAddressAndSaveToDatabase(unformattedAddress, googleResponse)
+        } catch {
+          case t: Throwable => println(s"+++ queryGoogleAddressAndSaveToDatabaseAndParse. exception for unformattedAddress: $unformattedAddress, exception: $t, googleResponse: $googleResponse"); throw t;
+        }
       }
       .recover {
         case t: FatalGoogleMapsError => fatalGoogleMapsError = t; ()
