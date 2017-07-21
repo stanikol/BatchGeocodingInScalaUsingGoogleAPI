@@ -13,7 +13,7 @@ object AddressParser {
 
   // information extracted
   case class ParsedAddress(
-                            exactMath: Boolean,
+                            numResults: Int,
                             locality: Option[String],
                             areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String],
                             postalCode: Option[String],
@@ -57,7 +57,7 @@ object AddressParser {
 
     checkStatusFromJsonResponse(response.status, response.error_message)
 
-    val exactMath = response.results.length == 1
+    val numResults = response.results.length
 
     response.results.headOption match {
       case Some(result) =>
@@ -72,7 +72,7 @@ object AddressParser {
         val location = result.geometry.location
         val formattedAddress = result.formatted_address
 
-        ParsedAddress(exactMath, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
+        ParsedAddress(numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
       case None => throw new Exception("zero results")
     }
   }

@@ -35,7 +35,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
 
   private def saveGoogleResponseToDatabase(unformattedAddress: String, googleResponse: String) {
     println(s"+++ saveGoogleResponseToDatabase: $unformattedAddress")
-    executeOneRowUpdate(SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus=null, exactMatch=null, locality=null, areaLevel1=null, areaLevel2=null, areaLevel3=null, postalCode=null, country=null, lat=null, lng=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
+    executeOneRowUpdate(SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus=null, numResults=null, locality=null, areaLevel1=null, areaLevel2=null, areaLevel3=null, postalCode=null, country=null, lat=null, lng=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
   }
 
   private def queryGoogleAddressAndSaveToDatabaseAndParse(unformattedAddress: String): Future[Unit] = {
@@ -62,7 +62,7 @@ class BatchParserCmd(googleApiKey: String, implicit val conn: Connection) {
   private def saveParsedAddressToDatabase(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress) {
     println(s"+++ saveParsedAddressToDatabase: $unformattedAddress, $parsedAddress")
     import parsedAddress._
-    executeOneRowUpdate(SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus='OK', exactMatch=$exactMath, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where unformattedAddress=$unformattedAddress")
+    executeOneRowUpdate(SQL"update addresses set googleResponse=$googleResponse, parseGoogleResponseStatus='OK', numResults=$numResults, locality=$locality, areaLevel1=$areaLevel1, areaLevel2=$areaLevel2, areaLevel3=$areaLevel3, postalCode=$postalCode, country=$country, lat=${location.map(_.lat)}, lng=${location.map(_.lng)}, formattedAddress=$formattedAddress where unformattedAddress=$unformattedAddress")
   }
 
   private def saveErrorToDatabase(unformattedAddress: String, exception: Throwable) {
