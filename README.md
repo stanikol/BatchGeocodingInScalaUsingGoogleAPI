@@ -164,11 +164,10 @@ numResults int,
 locality varchar(200), areaLevel1 varchar(200), areaLevel2 varchar(200), areaLevel3 varchar(200), postalCode varchar(100), country varchar(100), lat float(10,6), lng float(10,6), 
 formattedAddress varchar(500), 
 index(numResults), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(locality), index(areaLevel1), index(areaLevel2), index(areaLevel3), index(postalCode), index(country), index(lat), index(lng), index(formattedAddress)
-);
+) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_unicode_ci;
 ```
 
 Note: we use `float(10,6)` for storing lat and lng, as proposed by the [google api example](https://developers.google.com/maps/solutions/store-locator/clothing-store-locator?csw=1).
-Note: make sure you use `utf8mb4` encoding by creating your database as follows: `create database yourdb default character set = utf8mb4 collate = utf8mb4_unicode_ci;`.
 Note: if you get an `ERROR 1709 (HY000): Index column size too large. The maximum column size is 767 bytes.`, update your mysql server to the latest version.
 
 
@@ -180,7 +179,7 @@ mysql> insert into addresses (unformattedAddress) values ('Statue, Palayam, Thir
 ```
 or from another table/query, such as from patstat:
 ```
-mysql> insert ignore into addresses (unformattedAddress) select distinct(concat(address_freeform, ', ', person_ctry_code)) from tls226_person_orig where nullif(address_freeform, '') is not null;
+mysql> insert ignore into addresses (unformattedAddress) select distinct(trim(concat(address_freeform, ', ', person_ctry_code))) from tls226_person_orig where nullif(address_freeform, '') is not null;
 ```
 
 
