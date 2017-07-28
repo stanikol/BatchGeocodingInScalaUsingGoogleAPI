@@ -23,7 +23,7 @@ object AddressParser {
 
   case class QueryAndResult(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress)
 
-  class FatalGoogleMapsError(message: String) extends Exception(message)
+  class GoogleGeocoderFatalError(message: String) extends Exception(message)
 
   // these "formats" define a default parser for the google response based on the field names
   implicit private val addressComponentFormats = Json.format[AddressComponent]
@@ -33,47 +33,42 @@ object AddressParser {
   implicit private val responseFormats = Json.format[Response]
   implicit private val statusResponseFormats = Json.format[StatusResponse]
 
-  def parseAddress(googleApiKey: String, unformattedAddress: String): QueryAndResult = {
-    val googleResponse = Utils.download(url(googleApiKey, unformattedAddress))
-    val parsedAddress = parseAddressFromJsonResponse(googleResponse)
-    QueryAndResult(unformattedAddress, googleResponse, parsedAddress)
-  }
-
   def url(googleApiKey: String, unformattedAddress: String): String =
     s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
-  def checkOverQueryLimitFromJsonResponse(googleResponseString: String) {
-    val response: StatusResponse = Json.parse(googleResponseString).validate[StatusResponse].get
-    checkStatusFromJsonResponse(response.status, response.error_message)
+  def findGoogleGeocoderFatalErrorFromJsonResponse(googleResponseString: String): Option[GoogleGeocoderFatalError] = {
+    // todo: handle case Json.parse throws expcetion
+    Json.parse(googleResponseString).validate[StatusResponse] match {
+      case JsSuccess(response, _) => findGoogleGeocoderFatalErrorFromJsonResponse(response.status, response.error_message)
+      case JsError(errors) => Some(new GoogleGeocoderFatalError(s"invalid response: $googleResponseString: errors: $errors"))
+    }
   }
 
-  def checkStatusFromJsonResponse(status: String, error_message: Option[String]) {
-    if (status != "OK" && status != "ZERO_RESULTS")
-      throw new FatalGoogleMapsError(status + ": " + error_message.getOrElse(""))
-  }
+  def findGoogleGeocoderFatalErrorFromJsonResponse(status: String, error_message: Option[String]): Option[GoogleGeocoderFatalError] =
+    if (status == "OK" || status == "ZERO_RESULTS") None
+    else Some(new GoogleGeocoderFatalError(status + ": " + error_message.getOrElse("")))
 
-  def parseAddressFromJsonResponse(googleResponseString: String): ParsedAddress = {
+  // returns None if zero results, or Some(the first result).
+  def parseAddressFromJsonResponse(googleResponseString: String): Option[ParsedAddress] = {
     val response: Response = Json.parse(googleResponseString).validate[Response].get
 
-    checkStatusFromJsonResponse(response.status, response.error_message)
+    findGoogleGeocoderFatalErrorFromJsonResponse(response.status, response.error_message).foreach(e => throw e)
 
     val numResults = response.results.length
 
-    response.results.headOption match {
-      case Some(result) =>
-        def addressComponent(typeId: String) = result.address_components.find(_.types.contains(typeId))
+    response.results.headOption.map { result =>
+      def addressComponent(typeId: String) = result.address_components.find(_.types.contains(typeId))
 
-        val locality = addressComponent("locality").map(_.long_name)
-        val areaLevel1 = addressComponent("administrative_area_level_1").map(_.long_name)
-        val areaLevel2 = addressComponent("administrative_area_level_2").map(_.long_name)
-        val areaLevel3 = addressComponent("administrative_area_level_3").map(_.long_name)
-        val postalCode = addressComponent("postal_code").map(_.long_name)
-        val country = addressComponent("country").map(_.short_name)
-        val location = result.geometry.location
-        val formattedAddress = result.formatted_address
+      val locality = addressComponent("locality").map(_.long_name)
+      val areaLevel1 = addressComponent("administrative_area_level_1").map(_.long_name)
+      val areaLevel2 = addressComponent("administrative_area_level_2").map(_.long_name)
+      val areaLevel3 = addressComponent("administrative_area_level_3").map(_.long_name)
+      val postalCode = addressComponent("postal_code").map(_.long_name)
+      val country = addressComponent("country").map(_.short_name)
+      val location = result.geometry.location
+      val formattedAddress = result.formatted_address
 
-        ParsedAddress(numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
-      case None => throw new Exception("zero results")
+      ParsedAddress(numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
     }
   }
 }
