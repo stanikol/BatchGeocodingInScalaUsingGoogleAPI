@@ -29,6 +29,8 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
   var currentRequests = 0
   val MaxCurrentRequest = 10
 
+  var numRequests = 0
+
   def receive = {
     case GeoCode(unformattedAddress) =>
       log.info(s"GeoCode $unformattedAddress")
@@ -69,7 +71,8 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
 
   def query(unformattedAddress: String) {
     currentRequests = currentRequests + 1
-    log.info(s"query $unformattedAddress")
+    numRequests = numRequests + 1
+    log.info(s"query #$numRequests: $unformattedAddress")
     val url = AddressParser.url(googleApiKey, unformattedAddress)
     http
       .singleRequest(HttpRequest(uri = url))
