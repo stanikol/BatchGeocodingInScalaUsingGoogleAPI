@@ -19,6 +19,6 @@ object Utils {
     if (numUpdatedRows != 1) throw new Exception(s"error saving to database. numUpdatedRows $numUpdatedRows != 1")
   }
 
-  def textSample(text: String): String =
-    text.replaceAll("\\s+", " ").take(50)
+  def textSample(text: Any): String =
+    text.toString.replaceAll("\\s+", " ").take(300)
 }
