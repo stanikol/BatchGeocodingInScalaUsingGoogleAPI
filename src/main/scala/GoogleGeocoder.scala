@@ -33,18 +33,22 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
 
   def receive = {
     case GeoCode(unformattedAddress) =>
-      log.info(s"GeoCode $unformattedAddress")
-      if (currentRequests < MaxCurrentRequest)
-        query(unformattedAddress)
-      else
-        queue += unformattedAddress
+      if (numFatalErrors < MaxFatalErrors) {
+        log.info(s"GeoCode $unformattedAddress")
+        if (currentRequests < MaxCurrentRequest)
+          query(unformattedAddress)
+        else
+          queue += unformattedAddress
+      } else {
+        log.info(s"GeoCode. ignored because of MaxFatalErrors")
+      }
 
     case (unformattedAddress: String, resp @ HttpResponse(StatusCodes.OK, headers, entity, _)) =>
       log.info(s"Success response coming for $unformattedAddress")
       entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
+        val googleResponse = body.utf8String
         currentRequests = currentRequests - 1
         queryNext()
-        val googleResponse = body.utf8String
         log.info(s"Success response for $unformattedAddress: ${textSample(googleResponse)}")
 
         AddressParser.findGoogleGeocoderFatalErrorFromJsonResponse(googleResponse) match {
@@ -70,14 +74,18 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
   }
 
   def query(unformattedAddress: String) {
-    currentRequests = currentRequests + 1
-    numRequests = numRequests + 1
-    log.info(s"query #$numRequests: $unformattedAddress")
-    val url = AddressParser.url(googleApiKey, unformattedAddress)
-    http
-      .singleRequest(HttpRequest(uri = url))
-      .map(r => (unformattedAddress, r))
-      .pipeTo(self)
+    if (numFatalErrors < MaxFatalErrors) {
+      currentRequests = currentRequests + 1
+      numRequests = numRequests + 1
+      log.info(s"query #$numRequests: $unformattedAddress")
+      val url = AddressParser.url(googleApiKey, unformattedAddress)
+      http
+        .singleRequest(HttpRequest(uri = url))
+        .map(r => (unformattedAddress, r))
+        .pipeTo(self)
+    } else {
+      log.info(s"query. ignored because of MaxFatalErrors")
+    }
   }
 
   def queryNext() {
@@ -86,7 +94,8 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
     }
   }
 
-  def fatalError() {
+  def fatalError() {  // TODO: I get several fatalError #0. not thead-safe?!
+    log.info(s"fatalError #$numFatalErrors on ${self.path.name}")
     numFatalErrors = numFatalErrors + 1
     if (numFatalErrors > MaxFatalErrors) {
       log.info(s"MaxFatalErrors reached. stopping ${self.path.name}")
