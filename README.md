@@ -4,11 +4,11 @@ This is a simple Scala program for parsing a list of addresses using google maps
 
 The main function for parsing a single address is implemented on `src/main/scala/AddressParser.scala`:
 - It builds the proper URL google maps query with the requested address
-- It uses Play WS to download the page
 - It uses Play Json to parse the json response
 - It extracts the data we need and it builds an Address case class
 
-We also use a database with a list of addresses to query and a place to save the results.
+`BatchParsderCmd` uses akka in order to query and parse a list of addresses asynchronously.
+It queries the addresses from a database, and it uses three actors: GoogleGeocoder, AddressParserActor, and DB to save the results.
 
 
 # Requirements
