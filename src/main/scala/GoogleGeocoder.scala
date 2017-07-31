@@ -1,6 +1,6 @@
 import DB.SaveGoogleResponse
 import Utils.textSample
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Status}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
@@ -60,8 +60,11 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
       queryNext()
       fatalError()
 
-    case r =>
-      log.info("unexpected message: " + textSample(r))
+    case f: Status.Failure =>
+      log.info("failure" + textSample(f))
+
+    case m =>
+      log.info("unexpected message: " + textSample(m))
   }
 
   def query(unformattedAddress: String) {
