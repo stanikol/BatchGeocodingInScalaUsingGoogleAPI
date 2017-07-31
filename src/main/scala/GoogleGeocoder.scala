@@ -25,18 +25,23 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
   var numFatalErrors = 0
   val MaxFatalErrors = 5
 
+  val queue = new scala.collection.mutable.Queue[String]
+  var currentRequests = 0
+  val MaxCurrentRequest = 10
+
   def receive = {
     case GeoCode(unformattedAddress) =>
       log.info(s"GeoCode $unformattedAddress")
-      val url = AddressParser.url(googleApiKey, unformattedAddress)
-      http
-        .singleRequest(HttpRequest(uri = url))
-        .map(r => (unformattedAddress, r))
-        .pipeTo(self)
+      if (currentRequests < MaxCurrentRequest)
+        query(unformattedAddress)
+      else
+        queue += unformattedAddress
 
     case (unformattedAddress: String, resp @ HttpResponse(StatusCodes.OK, headers, entity, _)) =>
       log.info(s"Success response coming for $unformattedAddress")
       entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
+        currentRequests = currentRequests - 1
+        queryNext()
         val googleResponse = body.utf8String
         log.info(s"Success response for $unformattedAddress: ${textSample(googleResponse)}")
 
@@ -51,7 +56,28 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
     case (unformattedAddress: String, resp @ HttpResponse(code, _, _, _)) =>
       log.info(s"Request failed, response code: $code for $unformattedAddress")
       resp.discardEntityBytes()
+      currentRequests = currentRequests - 1
+      queryNext()
       fatalError()
+
+    case r =>
+      log.info("unexpected message: " + textSample(r))
+  }
+
+  def query(unformattedAddress: String) {
+    currentRequests = currentRequests + 1
+    log.info(s"query $unformattedAddress")
+    val url = AddressParser.url(googleApiKey, unformattedAddress)
+    http
+      .singleRequest(HttpRequest(uri = url))
+      .map(r => (unformattedAddress, r))
+      .pipeTo(self)
+  }
+
+  def queryNext() {
+    if (queue.nonEmpty) {
+      query(queue.dequeue)
+    }
   }
 
   def fatalError() {
