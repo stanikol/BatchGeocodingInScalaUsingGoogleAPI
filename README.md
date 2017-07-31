@@ -195,11 +195,16 @@ $ export dbUrl=jdbc:postgresql://SERVER_HOST/DATABASE?user=USER&password=PASSWOR
 ### Run
 ```
 $ export googleApiKey="AIzaSyBwG-Zo6me1yd6V2_ZO7L-3K8A0U1122LA"   # update with your valid api key
-$ sbt "runMain BatchParserCmd 20 $googleApiKey $dbUrl"
+# sbt "runMain BatchParserCmd <maxGoogleQueries> <maxOpenRequests> <maxFatalErrors> <googleApiKey> <dbUrl>"
+$ sbt "runMain BatchParserCmd 20 10 5 $googleApiKey $dbUrl"
 ```
-Here, `20` is the max number of google queries to do. It's best to try with a small number first.
+`maxGoogleQueries` is the max number of google queries to do. It's best to try with a small number first.
 The program will also stop if the max number of queries to the google api is exceeded (2500 request per day for the free account).
 You can then execute this same command the following day, and it will resume the process (it will not re-download what it has queried already). 
+
+The program queries google in parallel. The bigger `maxOpenRequests`, the faster to query all addresses. Google has a rate limit, so try before with smalls numbers. Not more than 32.
+
+The program will stop after `maxFatalErrors`. Set a small number.
 
 
 ### Query the results

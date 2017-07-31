@@ -7,12 +7,12 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.util.ByteString
 
 object GoogleGeocoder {
-  def props(googleApiKey: String, db: ActorRef, addressParser: ActorRef): Props = Props(new GoogleGeocoder(googleApiKey, db, addressParser))
+  def props(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef): Props = Props(new GoogleGeocoder(googleApiKey, maxOpenRequests, maxFatalErrors, db, addressParser))
 
   final case class GeoCode(unformattedAddress: String)
 }
 
-class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef) extends Actor with ActorLogging {
+class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef) extends Actor with ActorLogging {
   import GoogleGeocoder._
   import AddressParserActor._
   import akka.pattern.pipe
@@ -23,19 +23,17 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
   val http = Http(context.system)
 
   var numFatalErrors = 0
-  val MaxFatalErrors = 5
 
   val queue = new scala.collection.mutable.Queue[String]
-  var currentRequests = 0
-  val MaxCurrentRequest = 10
+  var numOpenRequests = 0
 
   var numRequests = 0
 
   def receive = {
     case GeoCode(unformattedAddress) =>
-      if (numFatalErrors < MaxFatalErrors) {
+      if (numFatalErrors < maxFatalErrors) {
         log.info(s"GeoCode $unformattedAddress")
-        if (currentRequests < MaxCurrentRequest)
+        if (numOpenRequests < maxOpenRequests)
           query(unformattedAddress)
         else
           queue += unformattedAddress
@@ -47,7 +45,7 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
       log.info(s"Success response coming for $unformattedAddress")
       entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
         val googleResponse = body.utf8String
-        currentRequests = currentRequests - 1
+        numOpenRequests = numOpenRequests - 1
         queryNext()
         log.info(s"Success response for $unformattedAddress: ${textSample(googleResponse)}")
 
@@ -62,7 +60,7 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
     case (unformattedAddress: String, resp @ HttpResponse(code, _, _, _)) =>
       log.info(s"Request failed, response code: $code for $unformattedAddress")
       resp.discardEntityBytes()
-      currentRequests = currentRequests - 1
+      numOpenRequests = numOpenRequests - 1
       queryNext()
       fatalError()
 
@@ -74,8 +72,8 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
   }
 
   def query(unformattedAddress: String) {
-    if (numFatalErrors < MaxFatalErrors) {
-      currentRequests = currentRequests + 1
+    if (numFatalErrors < maxFatalErrors) {
+      numOpenRequests = numOpenRequests + 1
       numRequests = numRequests + 1
       log.info(s"query #$numRequests: $unformattedAddress")
       val url = AddressParser.url(googleApiKey, unformattedAddress)
@@ -97,7 +95,7 @@ class GoogleGeocoder(googleApiKey: String, db: ActorRef, addressParser: ActorRef
   def fatalError() {  // TODO: I get several fatalError #0. not thead-safe?!
     log.info(s"fatalError #$numFatalErrors on ${self.path.name}")
     numFatalErrors = numFatalErrors + 1
-    if (numFatalErrors > MaxFatalErrors) {
+    if (numFatalErrors > maxFatalErrors) {
       log.info(s"MaxFatalErrors reached. stopping ${self.path.name}")
       context.stop(self)
     }
