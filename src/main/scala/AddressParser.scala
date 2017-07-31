@@ -1,6 +1,9 @@
 import java.net.URLEncoder
 
+import Utils.textSample
 import play.api.libs.json._
+
+import scala.util.{Failure, Success, Try}
 
 object AddressParser {
   // google json response
@@ -37,10 +40,12 @@ object AddressParser {
     s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
   def findGoogleGeocoderFatalErrorFromJsonResponse(googleResponseString: String): Option[GoogleGeocoderFatalError] = {
-    // todo: handle case Json.parse throws expcetion
-    Json.parse(googleResponseString).validate[StatusResponse] match {
-      case JsSuccess(response, _) => findGoogleGeocoderFatalErrorFromJsonResponse(response.status, response.error_message)
-      case JsError(errors) => Some(new GoogleGeocoderFatalError(s"invalid response: $googleResponseString: errors: $errors"))
+    Try(Json.parse(googleResponseString)) match {
+      case Failure(e) => Some(new GoogleGeocoderFatalError(s"invalid response: ${textSample(googleResponseString)}: errors: ${textSample(e)}"))
+      case Success(json) => json.validate[StatusResponse] match {
+        case JsSuccess(response, _) => findGoogleGeocoderFatalErrorFromJsonResponse(response.status, response.error_message)
+        case JsError(errors) => Some(new GoogleGeocoderFatalError(s"invalid response: ${textSample(googleResponseString)}: errors: ${textSample(errors)}"))
+      }
     }
   }
 
