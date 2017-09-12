@@ -154,7 +154,9 @@ We have a table called `addresses`, and it contains these fields:
 ## create the database
 We can create the table as follows:
 ```
-mysql> 
+mysql>
+create database test default character set utf8mb4 collate utf8mb4_unicode_ci;
+use test
 drop table addresses;
 create table addresses(
 unformattedAddress varchar(500) primary key, 
@@ -188,8 +190,8 @@ mysql> insert ignore into addresses (unformattedAddress) select distinct(trim(co
 ### Database connection details
 To connect to the database, we need to specify a JDBC URL. It looks as follows, depending on whether it is mysql, postgresql or something else:
 ```
-$ export dbUrl=jdbc:mysql://SERVER_HOST/DATABASE?user=USER&password=PASSWORD&useSSL=false&useUnicode=yes&characterEncoding=utf8
-$ export dbUrl=jdbc:postgresql://SERVER_HOST/DATABASE?user=USER&password=PASSWORD&ssl=true
+$ export dbUrl="jdbc:mysql://SERVER_HOST/DATABASE?user=USER&password=PASSWORD&useSSL=false&useUnicode=yes&characterEncoding=utf8"
+$ export dbUrl="jdbc:postgresql://SERVER_HOST/DATABASE?user=USER&password=PASSWORD&ssl=true"
 ```
 
 ### Run
