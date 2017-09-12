@@ -9,21 +9,22 @@ object BatchParserCmd {
     val maxFatalErrors = args(2).toInt
     val googleApiKey = args(3)
     val dbUrl = args(4)
+    val tableName = args(5)
 
-    run(maxGoogleQueries, googleApiKey, maxOpenRequests, maxFatalErrors, dbUrl)
+    run(maxGoogleQueries, googleApiKey, maxOpenRequests, maxFatalErrors, dbUrl, tableName)
   }
 
-  def run(maxGoogleQueries: Int, googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, dbUrl: String) {
+  def run(maxGoogleQueries: Int, googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, dbUrl: String, tableName: String) {
     val conn = Utils.getDbConnection(dbUrl)
     val unformattedAddresses: List[String] = try {
-      DB.getAddressesWithEmptyGoogleResponseFromDatabase(maxGoogleQueries)(conn)
+      DB.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxGoogleQueries)(conn)
     } finally { conn.close() }
 
     println(s"num unformattedAddresses to query: ${unformattedAddresses.length}")
 
     val system: ActorSystem = ActorSystem("System")
     try {
-      val db = system.actorOf(DB.props(dbUrl), "DB")
+      val db = system.actorOf(DB.props(dbUrl, tableName), "DB")
       val addressParser = system.actorOf(AddressParserActor.props(db), "AddressParser")
       val googleGeocoder = system.actorOf(GoogleGeocoder.props(googleApiKey, maxOpenRequests: Int, maxFatalErrors: Int, db, addressParser), "GoogleAPI")
 

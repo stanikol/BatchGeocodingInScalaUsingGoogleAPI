@@ -197,8 +197,8 @@ $ export dbUrl="jdbc:postgresql://SERVER_HOST/DATABASE?user=USER&password=PASSWO
 ### Run
 ```
 $ export googleApiKey="AIzaSyBwG-Zo6me1yd6V2_ZO7L-3K8A0U1122LA"   # update with your valid api key
-# sbt "runMain BatchParserCmd <maxGoogleQueries> <maxOpenRequests> <maxFatalErrors> <googleApiKey> <dbUrl>"
-$ sbt "runMain BatchParserCmd 20 10 5 $googleApiKey $dbUrl"
+# sbt "runMain BatchParserCmd <maxGoogleQueries> <maxOpenRequests> <maxFatalErrors> <googleApiKey> <dbUrl> <tableName>"
+$ sbt "runMain BatchParserCmd 20 10 5 $googleApiKey $dbUrl addresses"
 ```
 `maxGoogleQueries` is the max number of google queries to do. It's best to try with a small number first.
 The program will also stop if the max number of queries to the google api is exceeded (2500 request per day for the free account).
@@ -229,7 +229,7 @@ mysql> select * from addresses_;
 ### See stats
 This is an example results after querying 250 addresses:
 ```
-$ sbt "runMain BatchParserCmd 250 $googleApiKey $dbUrl"
+$ sbt "runMain BatchParserCmd 250 $googleApiKey $dbUrl addresses"
 
 mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses_ group by googleResponseStored, parseGoogleResponseStatus, numResults;
 +----------+----------------------+-----------------------------------+------------+
@@ -251,7 +251,7 @@ It says that:
 
 We can resume the program and query 100 more addresses:
 ```
-$ sbt "runMain BatchParserCmd 100 $googleApiKey $dbUrl"
+$ sbt "runMain BatchParserCmd 100 $googleApiKey $dbUrl addresses"
 
 mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses_ group by googleResponseStored, parseGoogleResponseStatus, numResults;
 +----------+----------------------+-----------------------------------+------------+
