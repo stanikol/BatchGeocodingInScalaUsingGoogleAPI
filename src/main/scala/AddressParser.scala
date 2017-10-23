@@ -24,8 +24,6 @@ object AddressParser {
                             location: Option[Location],
                             formattedAddress: String)
 
-  case class QueryAndResult(unformattedAddress: String, googleResponse: String, parsedAddress: ParsedAddress)
-
   class GoogleGeocoderFatalError(message: String) extends Exception(message)
 
   // these "formats" define a default parser for the google response based on the field names
