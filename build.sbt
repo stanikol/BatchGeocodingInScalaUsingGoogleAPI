@@ -12,5 +12,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.play" %% "anorm" % "2.5.3",
   "mysql" % "mysql-connector-java" % "5.1.40",
   "org.postgresql" % "postgresql" % "42.1.3",
-  "com.typesafe.akka" %% "akka-http"         % akkaHttpVersion
+  "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
+  "org.scalaj" %% "scalaj-http" % "2.3.0",
+  "com.github.nikita-volkov" % "sext" % "0.2.4"
 )

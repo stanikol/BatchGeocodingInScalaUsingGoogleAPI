@@ -2,6 +2,8 @@ import java.sql.Connection
 
 import anorm.{Row, SimpleSql}
 
+import scalaj.http.{Http, HttpOptions}
+
 object Utils {
   def getDbConnection(dbUrl: String): Connection = {
     Class.forName("com.mysql.jdbc.Driver").newInstance()
@@ -21,4 +23,7 @@ object Utils {
 
   def textSample(text: Any): String =
     text.toString.replaceAll("\\s+", " ").take(300)
+
+  def download(url: String): String =
+    Http(url).option(HttpOptions.followRedirects(true)).asString.body
 }
