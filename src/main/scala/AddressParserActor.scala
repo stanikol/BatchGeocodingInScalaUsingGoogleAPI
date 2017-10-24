@@ -18,7 +18,7 @@ class AddressParserActor(db: ActorRef) extends Actor {
           case None => db ! SaveGoogleResponseAndEmptyResult(unformattedAddress, googleResponse)
         }
       } catch {
-        case e: Throwable => SaveError(unformattedAddress, e)
+        case e: Throwable => db ! SaveError(unformattedAddress, e)
       }
   }
 }
