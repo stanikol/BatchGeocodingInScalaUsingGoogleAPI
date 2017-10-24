@@ -22,7 +22,10 @@ object AddressParser {
                             postalCode: Option[String],
                             country: Option[String],
                             location: Option[Location],
-                            formattedAddress: String)
+                            formattedAddress: String,
+                            mainType: Option[String],
+                            types: List[String]
+                          )
 
   class GoogleGeocoderFatalError(message: String) extends Exception(message)
 
@@ -70,8 +73,34 @@ object AddressParser {
       val country = addressComponent("country").map(_.short_name)
       val location = result.geometry.location
       val formattedAddress = result.formatted_address
+      val types = result.types
+      val mainType = mainTypeOrder.find(types.contains)
 
-      ParsedAddress(numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress)
+      ParsedAddress(numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress, mainType, types)
     }
   }
+
+  // result types defined in https://developers.google.com/maps/documentation/geocoding/intro
+  // ordered according to my definition of precission (political, colloquial_area were excluded)
+  val mainTypeOrder = List(
+    "street_address",
+    "route",
+    "postal_code",
+    "ward",
+    "sublocality",
+    "locality",
+    "natural_feature",
+    "airport",
+    "point_of_interest",
+    "park",
+    "intersection",
+    "subpremise",
+    "premise",
+    "neighborhood",
+    "administrative_area_level_5",
+    "administrative_area_level_4",
+    "administrative_area_level_3",
+    "administrative_area_level_2",
+    "administrative_area_level_1",
+    "country")
 }

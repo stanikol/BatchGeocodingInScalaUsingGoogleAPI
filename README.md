@@ -163,10 +163,11 @@ unformattedAddress varchar(500) primary key,
 googleResponse text, 
 parseGoogleResponseStatus text, 
 numResults int, 
-locality varchar(200), areaLevel1 varchar(200), areaLevel2 varchar(200), areaLevel3 varchar(200), postalCode varchar(100), country varchar(100), lat float(10,6), lng float(10,6), 
+locality varchar(200), areaLevel1 varchar(200), areaLevel2 varchar(200), areaLevel3 varchar(200), postalCode varchar(100), country varchar(100), lat float(10,6), lng float(10,6),
+mainType varchar(100), types text,
 formattedAddress varchar(500), 
 ts timestamp default current_timestamp on update current_timestamp,
-index(numResults), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(locality), index(areaLevel1), index(areaLevel2), index(areaLevel3), index(postalCode), index(country), index(lat), index(lng), index(formattedAddress), index(ts)
+index(numResults), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(locality), index(areaLevel1), index(areaLevel2), index(areaLevel3), index(postalCode), index(country), index(lat), index(lng), index(formattedAddress), index(mainType), index(types(100)), index(ts)
 ) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_unicode_ci;
 ```
 
@@ -211,7 +212,7 @@ The program will stop after `maxFatalErrors`. Set a small number.
 
 ### Query the results
 ```
-mysql> create view addresses_ as select unformattedAddress, concat(left(replace(googleResponse, '\n', ' '), 20), '...') googleResponse, parseGoogleResponseStatus, numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, lat, lng, formattedAddress, ts from addresses;
+mysql> create view addresses_ as select unformattedAddress, concat(left(replace(googleResponse, '\n', ' '), 20), '...') googleResponse, parseGoogleResponseStatus, numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, lat, lng, mainType, types, formattedAddress, ts from addresses;
 mysql> select * from addresses_;                                                                                                                                                                                                                                        
 +------------------------------------------------------------------+-------------------------+-----------------------------------+------------+---------------+--------------------+------------------+-------------+------------+---------+-----------+------------+---------------------------------------------------+
 | unformattedAddress                                               | googleResponse          | parseGoogleResponseStatus         | numResults | locality      | areaLevel1         | areaLevel2       | areaLevel3  | postalCode | country | lat       | lng        | formattedAddress                                  |
