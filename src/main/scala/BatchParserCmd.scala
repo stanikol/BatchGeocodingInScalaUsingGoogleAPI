@@ -3,37 +3,92 @@ import akka.actor.ActorSystem
 import scala.io.StdIn
 
 object BatchParserCmd {
-  def main(args: Array[String]) {
-    val maxGoogleQueries = args(0).toInt
-    val maxOpenRequests = args(1).toInt
-    val maxFatalErrors = args(2).toInt
-    val googleApiKey = args(3)
-    val dbUrl = args(4)
-    val tableName = args(5)
+  case class Config(
+                   op: String = "",
+                   maxEntries: Int = 100,
+                   maxGoogleAPIOpenRequests: Int = 10,
+                   maxGoogleAPIFatalErrors: Int = 5,
+                     googleApiKey: String = "",
+                     dbUrl: String = "",
+                     tableName: String = ""
+                   )
 
-    run(maxGoogleQueries, googleApiKey, maxOpenRequests, maxFatalErrors, dbUrl, tableName)
+  val parser = new scopt.OptionParser[Config]("BatchParserCmd") {
+    override def showUsageOnError = true
+
+    opt[String]("op").required.action((x, c) =>
+      c.copy(op = x)).text("googleQueryAndParse or parseOnly")
+
+    opt[Int]("maxEntries").required.action((x, c) =>
+      c.copy(maxEntries = x)).text("maxEntries")
+
+    opt[Int]("maxGoogleAPIOpenRequests").optional.action((x, c) =>
+      c.copy(maxGoogleAPIOpenRequests = x)).text("maxGoogleAPIOpenRequests")
+
+    opt[Int]("maxGoogleAPIFatalErrors").optional.action((x, c) =>
+      c.copy(maxGoogleAPIFatalErrors = x)).text("maxGoogleAPIFatalErrors")
+
+    opt[String]("googleApiKey").optional.action((x, c) =>
+      c.copy(googleApiKey = x)).text("googleApiKey")
+
+    opt[String]("dbUrl").action((x, c) =>
+      c.copy(dbUrl = x)).text("dbUrl")
+
+    opt[String]("tableName").action((x, c) =>
+      c.copy(tableName = x)).text("tableName")
+
+    version("version")
   }
 
-  def run(maxGoogleQueries: Int, googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, dbUrl: String, tableName: String) {
+  def main(args: Array[String]) {
+    parser.parse(args, Config()) match {
+      case Some(config) =>
+        println("+++ config: " + config)
+
+        require(config.op == "googleQueryAndParse" || config.op == "parseOnly")
+
+        val system: ActorSystem = ActorSystem("System")
+        try {
+          if (config.op == "googleQueryAndParse") {
+            googleQueryAndParse(system, config.maxEntries, config.googleApiKey, config.maxGoogleAPIOpenRequests, config.maxGoogleAPIFatalErrors, config.dbUrl, config.tableName)
+          } else {
+            parseOnly(system, config.maxEntries, config.dbUrl, config.tableName)
+          }
+          println(">>> Press ENTER to exit <<<")
+          StdIn.readLine()
+        } finally {
+          system.terminate()
+        }
+      case None => sys.exit(1)
+    }
+  }
+
+  def googleQueryAndParse(system: ActorSystem, maxEntries: Int, googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, dbUrl: String, tableName: String) {
     val conn = Utils.getDbConnection(dbUrl)
     val unformattedAddresses: List[String] = try {
-      DB.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxGoogleQueries)(conn)
+      DB.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxEntries)(conn)
     } finally { conn.close() }
 
     println(s"num unformattedAddresses to query: ${unformattedAddresses.length}")
 
-    val system: ActorSystem = ActorSystem("System")
-    try {
-      val db = system.actorOf(DB.props(dbUrl, tableName), "DB")
-      val addressParser = system.actorOf(AddressParserActor.props(db), "AddressParser")
-      val googleGeocoder = system.actorOf(GoogleGeocoder.props(googleApiKey, maxOpenRequests: Int, maxFatalErrors: Int, db, addressParser), "GoogleAPI")
+    val db = system.actorOf(DB.props(dbUrl, tableName), "DB")
+    val addressParser = system.actorOf(AddressParserActor.props(db), "AddressParser")
+    val googleGeocoder = system.actorOf(GoogleGeocoder.props(googleApiKey, maxOpenRequests: Int, maxFatalErrors: Int, db, addressParser), "GoogleAPI")
 
-      unformattedAddresses.foreach(e => googleGeocoder ! GoogleGeocoder.GeoCode(e))
+    unformattedAddresses.foreach(e => googleGeocoder ! GoogleGeocoder.GeoCode(e))
+  }
 
-      println(">>> Press ENTER to exit <<<")
-      StdIn.readLine()
-    } finally {
-      system.terminate()
-    }
+  def parseOnly(system: ActorSystem, maxEntries: Int, dbUrl: String, tableName: String) {
+    val conn = Utils.getDbConnection(dbUrl)
+    val listOfUnformattedAddresseAndResponse: List[(String, String)] = try {
+      DB.getAddressesWithEmptyParseGoogleResponseStatusFromDatabase(tableName, maxEntries)(conn)
+    } finally { conn.close() }
+
+    println(s"num listOfUnformattedAddresseAndResponse: ${listOfUnformattedAddresseAndResponse.length}")
+
+    val db = system.actorOf(DB.props(dbUrl, tableName), "DB")
+    val addressParser = system.actorOf(AddressParserActor.props(db), "AddressParser")
+
+    listOfUnformattedAddresseAndResponse.foreach { case (unformattedAddress, googleResponse) => addressParser ! AddressParserActor.ParseAddress(unformattedAddress, googleResponse) }
   }
 }

@@ -12,11 +12,11 @@ object DB {
   final case class SaveGoogleResponseAndEmptyResult(unformattedAddress: String, googleResponse: String)
   final case class SaveError(unformattedAddress: String, exception: Throwable)
 
-  def getAddressesWithEmptyGoogleResponseFromDatabase(tableName: String, maxGoogleQueries: Int)(implicit conn: Connection): List[String] =
-    SQL"select unformattedAddress from #$tableName where googleResponse is null limit $maxGoogleQueries".as(SqlParser.str(1).*)
+  def getAddressesWithEmptyGoogleResponseFromDatabase(tableName: String, maxEntries: Int)(implicit conn: Connection): List[String] =
+    SQL"select unformattedAddress from #$tableName where googleResponse is null limit $maxEntries".as(SqlParser.str(1).*)
 
-  def getAddressesWithEmptyParseGoogleResponseStatusFromDatabase(tableName: String)(implicit conn: Connection): List[(String, String)] =
-    SQL"select unformattedAddress, googleResponse from #$tableName where googleResponse is not null and parseGoogleResponseStatus is null"
+  def getAddressesWithEmptyParseGoogleResponseStatusFromDatabase(tableName: String, maxEntries: Int)(implicit conn: Connection): List[(String, String)] =
+    SQL"select unformattedAddress, googleResponse from #$tableName where googleResponse is not null and parseGoogleResponseStatus is null limit $maxEntries"
       .as((SqlParser.str(1) ~ SqlParser.str(2)).*).map(SqlParser.flatten)
 }
 
