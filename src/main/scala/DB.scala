@@ -18,17 +18,36 @@ object DB {
   def getAddressesWithEmptyParseGoogleResponseStatusFromDatabase(tableName: String, maxEntries: Int)(implicit conn: Connection): List[(String, String)] =
     SQL"select unformattedAddress, googleResponse from #$tableName where googleResponse is not null and parseGoogleResponseStatus is null limit $maxEntries"
       .as((SqlParser.str(1) ~ SqlParser.str(2)).*).map(SqlParser.flatten)
-}
-
-class DB(dbUrl: String, tableName: String) extends Actor with ActorLogging {
-  import DB._
-  implicit val conn: Connection = Utils.getDbConnection(dbUrl)
 
   val addressComponentTypesUpdateStmt: String =
     AddressParser.addressComponentTypes.map(t => s"$t = {$t}").mkString(", ")
 
   val addressComponentTypesNullUpdateStmt: String =
     AddressParser.addressComponentTypes.map(t => s"$t = null").mkString(", ")
+
+  val createTableStmt: String =
+    s"""
+      |create table addresses(
+      |unformattedAddress varchar(500) primary key,
+      |googleResponse text,
+      |parseGoogleResponseStatus text,
+      |numResults int,
+      |${AddressParser.addressComponentTypes.map(c => s"$c varchar(100)").mkString(", ")},
+      |lat float(10,6), lng float(10,6),
+      |mainType varchar(100), types text,
+      |viewportArea float,
+      |formattedAddress varchar(500),
+      |ts timestamp default current_timestamp on update current_timestamp,
+      |index(numResults), index(googleResponse(100)), index(parseGoogleResponseStatus(100)),
+      |${AddressParser.addressComponentTypes.map(c => s"index($c)").mkString(", ")},
+      |index(lat), index(lng), index(formattedAddress), index(mainType), index(types(100)), index(viewportArea), index(ts)
+      |) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_unicode_ci
+    """.stripMargin
+}
+
+class DB(dbUrl: String, tableName: String) extends Actor with ActorLogging {
+  import DB._
+  implicit val conn: Connection = Utils.getDbConnection(dbUrl)
 
   def receive = {
     case SaveGoogleResponse(unformattedAddress, googleResponse) =>
