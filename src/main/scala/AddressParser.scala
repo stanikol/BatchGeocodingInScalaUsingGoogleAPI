@@ -4,12 +4,14 @@ import Utils.textSample
 import play.api.libs.json._
 
 import scala.util.{Failure, Success, Try}
+import org.apache.sis.metadata.iso.extent.{DefaultGeographicBoundingBox, Extents}
 
 object AddressParser {
   // google json response
   case class AddressComponent(long_name: String, short_name: String, types: List[String])
   case class Location(lat: Float, lng: Float)
-  case class Geometry(location: Option[Location], location_type: String)
+  case class Viewport(northeast: Location, southwest: Location)
+  case class Geometry(location: Option[Location], location_type: String, viewport: Option[Viewport])
   case class Result(address_components: List[AddressComponent], geometry: Geometry, formatted_address: String, place_id: String, types: List[String])
   case class Response(error_message: Option[String], results: List[Result], status: String)
   case class StatusResponse(error_message: Option[String], status: String)
@@ -21,7 +23,8 @@ object AddressParser {
                             location: Option[Location],
                             formattedAddress: String,
                             mainType: Option[String],
-                            types: List[String]
+                            types: List[String],
+                            viewportArea: Option[Double]
                           )
 
   class GoogleGeocoderFatalError(message: String) extends Exception(message)
@@ -29,6 +32,7 @@ object AddressParser {
   // these "formats" define a default parser for the google response based on the field names
   implicit private val addressComponentFormats = Json.format[AddressComponent]
   implicit private val locationFormats = Json.format[Location]
+  implicit private val viewportFormats = Json.format[Viewport]
   implicit private val geometryFormats = Json.format[Geometry]
   implicit private val resultFormats = Json.format[Result]
   implicit private val responseFormats = Json.format[Response]
@@ -72,7 +76,10 @@ object AddressParser {
       val types = result.types
       val mainType = mainTypeOrder.find(types.contains)
 
-      ParsedAddress(numResults, addressComponents, location, formattedAddress, mainType, types)
+      val viewportArea: Option[Double] =
+        result.geometry.viewport.map(v => Extents.area(new DefaultGeographicBoundingBox(v.southwest.lng, v.northeast.lng, v.southwest.lat, v.northeast.lat)))
+
+      ParsedAddress(numResults, addressComponents, location, formattedAddress, mainType, types, viewportArea)
     }
   }
 

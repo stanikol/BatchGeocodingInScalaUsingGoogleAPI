@@ -14,5 +14,6 @@ libraryDependencies ++= Seq(
   "mysql" % "mysql-connector-java" % "5.1.40",
   "org.postgresql" % "postgresql" % "42.1.3",
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-  "org.scalaj" %% "scalaj-http" % "2.3.0"
+  "org.scalaj" %% "scalaj-http" % "2.3.0",
+  "org.apache.sis.core" % "sis-referencing" % "0.7"
 )

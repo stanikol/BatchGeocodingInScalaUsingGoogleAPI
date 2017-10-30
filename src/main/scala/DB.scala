@@ -42,14 +42,14 @@ class DB(dbUrl: String, tableName: String) extends Actor with ActorLogging {
 
       val params: Seq[NamedParameter] =
         (AddressParser.addressComponentTypes.map(t => (t, parsedAddress.addressComponents.get(t))).toMap +
-          ("googleResponse" -> Some(googleResponse), "numResults" -> Some(numResults.toString), "lat" -> location.map(_.lat.toString), "lng" -> location.map(_.lng.toString), "mainType" -> mainType, "types" -> Some(types.mkString(", ")), "formattedAddress" -> Some(formattedAddress), "unformattedAddress" -> Some(unformattedAddress))
+          ("googleResponse" -> Some(googleResponse), "numResults" -> Some(numResults.toString), "lat" -> location.map(_.lat.toString), "lng" -> location.map(_.lng.toString), "mainType" -> mainType, "types" -> Some(types.mkString(", ")), "viewportArea" -> viewportArea.map(_.toString), "formattedAddress" -> Some(formattedAddress), "unformattedAddress" -> Some(unformattedAddress))
           ).map {case (k,v) => NamedParameter(k, v)}.toSeq
 
-      executeOneRowUpdate(SQL(s"update $tableName set googleResponse={googleResponse}, parseGoogleResponseStatus='OK', numResults={numResults}, $addressComponentTypesUpdateStmt, lat={lat}, lng={lng}, mainType={mainType}, types={types}, formattedAddress={formattedAddress} where unformattedAddress={unformattedAddress}").on(params:_*))
+      executeOneRowUpdate(SQL(s"update $tableName set googleResponse={googleResponse}, parseGoogleResponseStatus='OK', numResults={numResults}, $addressComponentTypesUpdateStmt, lat={lat}, lng={lng}, mainType={mainType}, types={types}, viewportArea={viewportArea}, formattedAddress={formattedAddress} where unformattedAddress={unformattedAddress}").on(params:_*))
 
     case SaveGoogleResponseAndEmptyResult(unformattedAddress, googleResponse) =>
       log.info(s"SaveGoogleResponseAndEmptyResult: $unformattedAddress, ${textSample(googleResponse)}")
-      executeOneRowUpdate(SQL"update #$tableName set googleResponse=$googleResponse, parseGoogleResponseStatus='OK', numResults=0, #$addressComponentTypesNullUpdateStmt, lat=null, lng=null, mainType=null, types=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
+      executeOneRowUpdate(SQL"update #$tableName set googleResponse=$googleResponse, parseGoogleResponseStatus='OK', numResults=0, #$addressComponentTypesNullUpdateStmt, lat=null, lng=null, mainType=null, types=null, viewportArea=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
 
     case SaveError(unformattedAddress: String, exception: Throwable) =>
       log.info(s"SaveError: $unformattedAddress, $exception")
