@@ -17,10 +17,7 @@ object AddressParser {
   // information extracted
   case class ParsedAddress(
                             numResults: Int,
-                            locality: Option[String],
-                            areaLevel1: Option[String], areaLevel2: Option[String], areaLevel3: Option[String],
-                            postalCode: Option[String],
-                            country: Option[String],
+                            addressComponents: Map[String, String],
                             location: Option[Location],
                             formattedAddress: String,
                             mainType: Option[String],
@@ -63,20 +60,19 @@ object AddressParser {
     val numResults = response.results.length
 
     response.results.headOption.map { result =>
-      def addressComponent(typeId: String) = result.address_components.find(_.types.contains(typeId))
+      // this is a simplification, as a given result could have more than one locality, or postal code. check this example address with two localities in one given result: Beechgrove, Aglish, Farran, Ovens, Co. Cork, Ireland
+      def addressComponent(typeId: String): Option[AddressComponent] =
+        result.address_components.find(_.types.contains(typeId))
 
-      val locality = addressComponent("locality").map(_.long_name)
-      val areaLevel1 = addressComponent("administrative_area_level_1").map(_.long_name)
-      val areaLevel2 = addressComponent("administrative_area_level_2").map(_.long_name)
-      val areaLevel3 = addressComponent("administrative_area_level_3").map(_.long_name)
-      val postalCode = addressComponent("postal_code").map(_.long_name)
-      val country = addressComponent("country").map(_.short_name)
+      val addressComponents: Map[String, String] =
+        addressComponentTypes.flatMap(c => addressComponent(c).map(m => (c, m.long_name))).toMap
+
       val location = result.geometry.location
       val formattedAddress = result.formatted_address
       val types = result.types
       val mainType = mainTypeOrder.find(types.contains)
 
-      ParsedAddress(numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, location, formattedAddress, mainType, types)
+      ParsedAddress(numResults, addressComponents, location, formattedAddress, mainType, types)
     }
   }
 
@@ -108,4 +104,38 @@ object AddressParser {
     "administrative_area_level_2",
     "administrative_area_level_1",
     "country")
+
+  val addressComponentTypes = List(
+    "administrative_area_level_1",
+    "administrative_area_level_2",
+    "administrative_area_level_3",
+    "administrative_area_level_4",
+    "administrative_area_level_5",
+    "airport",
+    "country",
+    "establishment",
+    "floor",
+    "locality",
+    "natural_feature",
+    "neighborhood",
+    "park",
+    "point_of_interest",
+    "post_box",
+    "postal_code",
+    "postal_code_prefix",
+    "postal_code_suffix",
+    "postal_town",
+    "premise",
+    "route",
+    "street_address",
+    "street_number",
+    "sublocality",
+    "sublocality_level_1",
+    "sublocality_level_2",
+    "sublocality_level_3",
+    "sublocality_level_4",
+    "sublocality_level_5",
+    "subpremise",
+    "ward"
+  )
 }
