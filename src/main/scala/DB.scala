@@ -29,18 +29,16 @@ object DB {
     s"""
       |create table addresses(
       |unformattedAddress varchar(500) primary key,
+      |ts timestamp default current_timestamp on update current_timestamp,
       |googleResponse text,
       |parseGoogleResponseStatus text,
       |numResults int,
-      |${AddressParser.addressComponentTypes.map(c => s"$c varchar(100)").mkString(", ")},
-      |lat float(10,6), lng float(10,6),
-      |mainType varchar(100), types text,
-      |viewportArea float,
       |formattedAddress varchar(500),
-      |ts timestamp default current_timestamp on update current_timestamp,
-      |index(numResults), index(googleResponse(100)), index(parseGoogleResponseStatus(100)),
-      |${AddressParser.addressComponentTypes.map(c => s"index($c)").mkString(", ")},
-      |index(lat), index(lng), index(formattedAddress), index(mainType), index(types(100)), index(viewportArea), index(ts)
+      |lat float(10,6), lng float(10,6), mainType varchar(100), types text, viewportArea float,
+      |${AddressParser.addressComponentTypes.map(c => s"$c varchar(100)").mkString(", ")},
+      |index(ts), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(numResults), index(formattedAddress),
+      |index(lat), index(lng), index(mainType), index(types(100)), index(viewportArea),
+      |${AddressParser.addressComponentTypes.map(c => s"index($c)").mkString(", ")}
       |) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_unicode_ci
     """.stripMargin
 }
