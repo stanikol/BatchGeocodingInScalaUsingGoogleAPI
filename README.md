@@ -26,19 +26,23 @@ $ export googleApiKey="AIzaSyBwG-Zo6me1yd6V2_ZO7L-3K8A0U1122LA"   # update with 
 $ sbt "runMain ParserCmd $googleApiKey \"Av du Rond-Point 1, Lausanne, Switzerland\""
 
 - parsedAddress:
-| - numResults: 1
-| - locality: Lausanne
-| - areaLevel1: Vaud
-| - areaLevel2: Lausanne
-| - areaLevel3: -
-| - postalCode: 1006
-| - country: CH
+| - numResults: 2
+| - addressComponents:                  # only are take into account the ones defined on src/main/scala/AddressParser.scala -> addressComponentTypes 
+| | - country: United States
+| | - administrative_area_level_1: West Virginia
+| | - administrative_area_level_2: Putnam County
+| | - postal_code: 25109
+| | - route: 1st Avenue North
+| | - locality: Hometown
+| | - administrative_area_level_3: Buffalo-Union
 | - location:
-| | - lat: 46.515224
-| | - lng: 6.628633
-| - formattedAddress: Avenue du Rond-Point 1, 1006 Lausanne, Switzerland
+| | - lat: 38.535866 
+| | - lng: -81.86641
+| - formattedAddress: 1st Ave N, Hometown, WV 25109, USA
+| - mainType: route                     # this is computed according to src/main/scala/AddressParser.scala -> mainTypeOrder
+| - types: [route]
+| - viewportArea: 361119.3987508803     # this is computed from result.geometry.viewport
 ```
-
 
 # How it works
 Given this example address: "Av du Rond-Point 1, Lausanne, Switzerland"
@@ -146,8 +150,8 @@ We have a table called `addresses`, and it contains these fields:
 - parseGoogleResponseStatus
 - numResults
 - locality
-- areaLevel1
-- areaLevel2
+- administrative_area_level_1
+- administrative_area_level_2
 ...
 ```
 
@@ -181,9 +185,12 @@ Note: if you get an `ERROR 1713 (HY000): Undo log record is too big.`, update th
 
 We can insert the addresses to query as follows:
 ```
-mysql> insert into addresses (unformattedAddress) values ('Av du Rond-Point 1, Lausanne, Switzerland');
-mysql> insert into addresses (unformattedAddress) values ('Statue, Palayam, Thiruvananthapuram, Kerala 695001, India');
-...
+mysql> insert into addresses_todelete1 (unformattedAddress) values 
+  ('Av du Rond-Point 1, Lausanne, Switzerland'),
+  ('Statue, Palayam, Thiruvananthapuram, Kerala 695001, India'),
+  ('Frankfurt am Main 80, DE'),
+  ('(GSF);;INGOLSTAEDTER LANDSTR. 1;;D-8042 NEUHERBERG, DE'),
+  ('CAREL VAN BYLANDTLAAN 30, LA HAYA NL, NL');
 ```
 or from another table/query, such as from patstat:
 ```
@@ -202,8 +209,20 @@ $ export dbUrl="jdbc:postgresql://SERVER_HOST/DATABASE?user=USER&password=PASSWO
 ### Run
 ```
 $ export googleApiKey="AIzaSyBwG-Zo6me1yd6V2_ZO7L-3K8A0U1122LA"   # update with your valid api key
-# sbt "runMain BatchParserCmd <maxGoogleQueries> <maxOpenRequests> <maxFatalErrors> <googleApiKey> <dbUrl> <tableName>"
-$ sbt "runMain BatchParserCmd 20 10 5 $googleApiKey $dbUrl addresses"
+
+$ sbt "runMain BatchParserCmd --help"
+Usage: BatchParserCmd [options]
+
+  --op <value>    where value = googleQueryAndParse or parseOnly
+  --maxEntries <value>
+  --maxGoogleAPIOpenRequests <value>
+  --maxGoogleAPIFatalErrors <value>
+  --googleApiKey <value>
+  --dbUrl <value>
+  --tableName <value>
+  --version                
+
+$ sbt "runMain BatchParserCmd --op=googleQueryAndParse --maxEntries=20 --maxGoogleAPIOpenRequests=10 --maxGoogleAPIFatalErrors=5 --googleApiKey="$googleApiKey" --dbUrl="$dbUrl" --tableName=addresses"
 ```
 `maxGoogleQueries` is the max number of google queries to do. It's best to try with a small number first.
 The program will also stop if the max number of queries to the google api is exceeded (2500 request per day for the free account).
@@ -216,17 +235,21 @@ The program will stop after `maxFatalErrors`. Set a small number.
 
 ### Query the results
 ```
-mysql> create view addresses_ as select unformattedAddress, concat(left(replace(googleResponse, '\n', ' '), 20), '...') googleResponse, parseGoogleResponseStatus, numResults, locality, areaLevel1, areaLevel2, areaLevel3, postalCode, country, lat, lng, mainType, types, formattedAddress, ts from addresses;
+mysql>
+  set @database = 'david'; set @table = 'addresses';
+  set @sql = concat('create view ', @table, '_ as select ', (select replace(group_concat(column_name), 'googleResponse,', "concat(left(replace(googleResponse, '\n', ' '), 20), '...') as googleResponseCrop,") from information_schema.columns where table_name = @table and table_schema = @database), ' from ', @table);
+  prepare stmt from @sql; execute stmt;
+
 mysql> select * from addresses_;                                                                                                                                                                                                                                        
-+------------------------------------------------------------------+-------------------------+-----------------------------------+------------+---------------+--------------------+------------------+-------------+------------+---------+-----------+------------+---------------------------------------------------+
-| unformattedAddress                                               | googleResponse          | parseGoogleResponseStatus         | numResults | locality      | areaLevel1         | areaLevel2       | areaLevel3  | postalCode | country | lat       | lng        | formattedAddress                                  |
-+------------------------------------------------------------------+-------------------------+-----------------------------------+------------+---------------+--------------------+------------------+-------------+------------+---------+-----------+------------+---------------------------------------------------+
-|  & ORANGE HOME;;88 ELM STREET;;TORONTO, ONTARIO M5G 1X8, CA      | {    "results" : [  ... | OK                                |          1 | Toronto       | Ontario            | Toronto Division | NULL        | M5G 1H1    | CA      | 43.657314 | -79.383270 | 35 Elm St, Toronto, ON M5G 1H1, Canada            |
-|  (UMDNJ);;30 BERGEN STREET;;NEWARK, NJ 07107, US                 | {    "results" : [  ... | OK                                |          1 | Newark        | New Jersey         | Essex County     | NULL        | 07103      | US      | 40.743530 | -74.190727 | 50 Bergen St, Newark, NJ 07103, USA               |
-|  269 00 BAOSTAD SVERIGE, SE                                      | {    "results" : [  ... | OK                                |          2 | NULL          | Skåne län          | NULL             | NULL        | 269 62     | SE      | 56.390842 | 12.782355  | Järnvägsgatan 41, 269 62 Grevie, Sweden           |
-|  'INBIO';;UL. B.KOMMUNISTICHESKAYA, 27;;MOSCOW, 109004, SU       | {    "results" : [],... | java.lang.Exception: zero results |       NULL | NULL          | NULL               | NULL             | NULL        | NULL       | NULL    |      NULL |       NULL | NULL                                              |
-|  (GSF);;INGOLSTAEDTER LANDSTR. 1;;D-8042 NEUHERBERG, DE          | {    "results" : [],... | java.lang.Exception: zero results |       NULL | NULL          | NULL               | NULL             | NULL        | NULL       | NULL    |      NULL |       NULL | NULL                                              |
-|  IN DER TEXTILWIRTSCHAFT;;WICHNERGASSE 9;;A-6800 FELDKIRCH, AT   | NULL                    | NULL                              |       NULL | NULL          | NULL               | NULL             | NULL        | NULL       | NULL    |      NULL |       NULL | NULL                                              |
+mysql> select * from addresses_todelete1_;
++----+-----------------------------------------------------------+---------------------+-------------------------+---------------------------+------------+-----------------------------------------------------------+-----------+------------+---------------------+---------------------------------------------+--------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+---------+---------------+---------------+-------+--------------------+-----------------+--------------+------+-------------------+----------+-------------+--------------------+--------------------+-------------+---------+-----------------------+----------------+---------------+-------------+---------------------+---------------------+---------------------+---------------------+---------------------+------------+------+
+| id | unformattedAddress                                        | ts                  | googleResponseCrop      | parseGoogleResponseStatus | numResults | formattedAddress                                          | lat       | lng        | mainType            | types                                       | viewportArea | administrative_area_level_1 | administrative_area_level_2 | administrative_area_level_3 | administrative_area_level_4 | administrative_area_level_5 | airport | country       | establishment | floor | locality           | natural_feature | neighborhood | park | point_of_interest | post_box | postal_code | postal_code_prefix | postal_code_suffix | postal_town | premise | route                 | street_address | street_number | sublocality | sublocality_level_1 | sublocality_level_2 | sublocality_level_3 | sublocality_level_4 | sublocality_level_5 | subpremise | ward |
++----+-----------------------------------------------------------+---------------------+-------------------------+---------------------------+------------+-----------------------------------------------------------+-----------+------------+---------------------+---------------------------------------------+--------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+---------+---------------+---------------+-------+--------------------+-----------------+--------------+------+-------------------+----------+-------------+--------------------+--------------------+-------------+---------+-----------------------+----------------+---------------+-------------+---------------------+---------------------+---------------------+---------------------+---------------------+------------+------+
+| 41 | Av du Rond-Point 1, Lausanne, Switzerland                 | 2017-11-20 18:02:08 | {    "results" : [  ... | OK                        |          1 | Avenue du Rond-Point 1, 1006 Lausanne, Switzerland        | 46.515224 |   6.628633 | point_of_interest   | establishment, point_of_interest, premise   |      61911.9 | Vaud                        | Lausanne                    | NULL                        | NULL                        | NULL                        | NULL    | Switzerland   | NULL          | NULL  | Lausanne           | NULL            | NULL         | NULL | NULL              | NULL     | 1006        | NULL               | NULL               | NULL        | NULL    | Avenue du Rond-Point  | NULL           | 1             | NULL        | NULL                | NULL                | NULL                | NULL                | NULL                | NULL       | NULL |
+| 42 | Statue, Palayam, Thiruvananthapuram, Kerala 695001, India | 2017-11-20 18:02:08 | {    "results" : [  ... | OK                        |          1 | Statue, Palayam, Thiruvananthapuram, Kerala 695001, India |  8.496704 |  76.950623 | sublocality_level_2 | political, sublocality, sublocality_level_2 |       386070 | Kerala                      | Thiruvananthapuram          | NULL                        | NULL                        | NULL                        | NULL    | India         | NULL          | NULL  | Thiruvananthapuram | NULL            | NULL         | NULL | NULL              | NULL     | 695001      | NULL               | NULL               | NULL        | NULL    | NULL                  | NULL           | NULL          | Statue      | Palayam             | Statue              | NULL                | NULL                | NULL                | NULL       | NULL |
+| 43 | Frankfurt am Main 80, DE                                  | 2017-11-20 18:02:08 | {    "results" : [  ... | OK                        |          3 | 80 Main Dr, Frankfort, IN 46041, USA                      | 40.296558 | -86.513023 | street_address      | street_address                              |      68497.2 | Indiana                     | Clinton County              | Center Township             | NULL                        | NULL                        | NULL    | United States | NULL          | NULL  | Frankfort          | NULL            | NULL         | NULL | NULL              | NULL     | 46041       | NULL               | NULL               | NULL        | NULL    | Main Drive            | NULL           | 80            | NULL        | NULL                | NULL                | NULL                | NULL                | NULL                | NULL       | NULL |
+| 44 | (GSF);;INGOLSTAEDTER LANDSTR. 1;;D-8042 NEUHERBERG, DE    | 2017-11-20 18:02:08 | {    "results" : [],... | OK                        |          0 | NULL                                                      |      NULL |       NULL | NULL                | NULL                                        |         NULL | NULL                        | NULL                        | NULL                        | NULL                        | NULL                        | NULL    | NULL          | NULL          | NULL  | NULL               | NULL            | NULL         | NULL | NULL              | NULL     | NULL        | NULL               | NULL               | NULL        | NULL    | NULL                  | NULL           | NULL          | NULL        | NULL                | NULL                | NULL                | NULL                | NULL                | NULL       | NULL |
+| 45 | CAREL VAN BYLANDTLAAN 30, LA HAYA NL, NL                  | 2017-11-20 18:02:08 | NULL                    | NULL                      |       NULL | NULL                                                      |      NULL |       NULL | NULL                | NULL                                        |         NULL | NULL                        | NULL                        | NULL                        | NULL                        | NULL                        | NULL    | NULL          | NULL          | NULL  | NULL               | NULL            | NULL         | NULL | NULL              | NULL     | NULL        | NULL               | NULL               | NULL        | NULL    | NULL                  | NULL           | NULL          | NULL        | NULL                | NULL                | NULL                | NULL                | NULL                | NULL       | NULL |
 ...
 ```
 
@@ -234,14 +257,14 @@ mysql> select * from addresses_;
 ### See stats
 This is an example results after querying 250 addresses:
 ```
-$ sbt "runMain BatchParserCmd 250 $googleApiKey $dbUrl addresses"
+$ sbt "runMain BatchParserCmd --op=googleQueryAndParse --maxEntries=250 --googleApiKey="$googleApiKey" --dbUrl="$dbUrl" --tableName=addresses"
 
-mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses_ group by googleResponseStored, parseGoogleResponseStatus, numResults;
+mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses group by googleResponseStored, parseGoogleResponseStatus, numResults;
 +----------+----------------------+-----------------------------------+------------+
 | count(*) | googleResponseStored | parseGoogleResponseStatus         | numResults |
 +----------+----------------------+-----------------------------------+------------+
 |   860838 |                    0 | NULL                              |       NULL |
-|       58 |                    1 | java.lang.Exception: zero results |       NULL |
+|       58 |                    1 | OK                                |          0 |
 |       13 |                    1 | OK                                |          2 |
 |      179 |                    1 | OK                                |          1 |
 +----------+----------------------+-----------------------------------+------------+
@@ -256,14 +279,14 @@ It says that:
 
 We can resume the program and query 100 more addresses:
 ```
-$ sbt "runMain BatchParserCmd 100 $googleApiKey $dbUrl addresses"
+$ sbt "runMain BatchParserCmd --op=googleQueryAndParse --maxEntries=100 --googleApiKey="$googleApiKey" --dbUrl="$dbUrl" --tableName=addresses"
 
-mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses_ group by googleResponseStored, parseGoogleResponseStatus, numResults;
+mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses group by googleResponseStored, parseGoogleResponseStatus, numResults;
 +----------+----------------------+-----------------------------------+------------+
 | count(*) | googleResponseStored | parseGoogleResponseStatus         | numResults |
 +----------+----------------------+-----------------------------------+------------+
 |   860738 |                    0 | NULL                              |       NULL |
-|       68 |                    1 | java.lang.Exception: zero results |       NULL |
+|       68 |                    1 | OK                                |          0 |
 |       19 |                    1 | OK                                |          2 |
 |      263 |                    1 | OK                                |          1 |
 +----------+----------------------+-----------------------------------+------------+
@@ -281,7 +304,7 @@ mysql> update addresses set parseGoogleResponseStatus = null, numResults = null;
 Query OK, 274 rows affected (2.80 sec)
 Rows matched: 861088  Changed: 274  Warnings: 0
 
-mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses_ group by googleResponseStored, parseGoogleResponseStatus, numResults;
+mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses group by googleResponseStored, parseGoogleResponseStatus, numResults;
 +----------+----------------------+---------------------------+------------+
 | count(*) | googleResponseStored | parseGoogleResponseStatus | numResults |
 +----------+----------------------+---------------------------+------------+
@@ -295,14 +318,14 @@ This tells us that we have the google response for 350 queries.
 Now we can re-execute the parser again for those 350 addresses (without querying google).
 
 ```
-$ sbt "runMain BatchParserCmd 0 $googleApiKey $dbUrl"
+$ sbt "runMain BatchParserCmd --op=parseOnly --maxEntries=350 --dbUrl="$dbUrl" --tableName=addresses"
 
-mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses_ group by googleResponseStored, parseGoogleResponseStatus, numResults;
+mysql> select count(*), googleResponse is not null as googleResponseStored, parseGoogleResponseStatus, numResults from addresses group by googleResponseStored, parseGoogleResponseStatus, numResults;
 +----------+----------------------+-----------------------------------+------------+
 | count(*) | googleResponseStored | parseGoogleResponseStatus         | numResults |
 +----------+----------------------+-----------------------------------+------------+
 |   860738 |                    0 | NULL                              |       NULL |
-|       68 |                    1 | java.lang.Exception: zero results |       NULL |
+|       68 |                    1 | OK                                |          0 |
 |       19 |                    1 | OK                                |          2 |
 |      263 |                    1 | OK                                |          1 |
 +----------+----------------------+-----------------------------------+------------+
@@ -312,7 +335,7 @@ mysql> select count(*), googleResponse is not null as googleResponseStored, pars
 In case we want to force querying google again for any reason, we do as follows:
 ```
 mysql> update addresses set googleResponse = null, parseGoogleResponseStatus = null, numResults = null;
-$ sbt "runMain BatchParserCmd 250 $googleApiKey $dbUrl"
+$ sbt "runMain BatchParserCmd --op=googleQueryAndParse --maxEntries=250 --googleApiKey="$googleApiKey" --dbUrl="$dbUrl" --tableName=addresses"
 ```
 
 
