@@ -51,7 +51,7 @@ class DB(dbUrl: String, tableName: String) extends Actor with ActorLogging {
     case SaveGoogleResponse(unformattedAddress, googleResponse) =>
       log.info(s"SaveGoogleResponse: $unformattedAddress, ${textSample(googleResponse)}")
       // todo: this might overwrite the SaveGoogleResponseAndAddress
-      executeOneRowUpdate(SQL"update #$tableName set googleResponse=$googleResponse, parseGoogleResponseStatus=null, numResults=null, locality=null, areaLevel1=null, areaLevel2=null, areaLevel3=null, postalCode=null, country=null, lat=null, lng=null, mainType=null, types=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
+      executeOneRowUpdate(SQL"update #$tableName set googleResponse=$googleResponse, parseGoogleResponseStatus=null, numResults=null, #$addressComponentTypesNullUpdateStmt, lat=null, lng=null, mainType=null, types=null, viewportArea=null, formattedAddress=null where unformattedAddress=$unformattedAddress")
 
     case SaveGoogleResponseAndAddress(unformattedAddress, googleResponse, parsedAddress) =>
       log.info(s"SaveGoogleResponseAndAddress: $unformattedAddress, ${textSample(googleResponse)}, ${textSample(parsedAddress.toString)}")
