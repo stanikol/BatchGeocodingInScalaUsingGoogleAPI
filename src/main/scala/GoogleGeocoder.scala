@@ -9,7 +9,7 @@ import akka.util.ByteString
 object GoogleGeocoder {
   def props(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef): Props = Props(new GoogleGeocoder(googleApiKey, maxOpenRequests, maxFatalErrors, db, addressParser))
 
-  final case class GeoCode(unformattedAddress: String)
+  final case class GeoCode(id: Int, unformattedAddress: String)
 }
 
 class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef) extends Actor with ActorLogging {
@@ -24,41 +24,41 @@ class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors:
 
   var numFatalErrors = 0
 
-  val queue = new scala.collection.mutable.Queue[String]
+  val queue = new scala.collection.mutable.Queue[(Int, String)]
   var numOpenRequests = 0
 
   var numRequests = 0
 
   def receive = {
-    case GeoCode(unformattedAddress) =>
+    case GeoCode(id, unformattedAddress) =>
       if (numFatalErrors < maxFatalErrors) {
-        log.info(s"GeoCode $unformattedAddress")
+        log.info(s"GeoCode #$id: $unformattedAddress")
         if (numOpenRequests < maxOpenRequests)
-          query(unformattedAddress)
+          query(id, unformattedAddress)
         else
-          queue += unformattedAddress
+          queue += ((id, unformattedAddress))
       } else {
         log.info(s"GeoCode. ignored because of MaxFatalErrors")
       }
 
-    case (unformattedAddress: String, resp @ HttpResponse(StatusCodes.OK, headers, entity, _)) =>
-      log.info(s"Success response coming for $unformattedAddress")
+    case (id: Int, resp @ HttpResponse(StatusCodes.OK, headers, entity, _)) =>
+      log.info(s"Success response coming for #$id")
       entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
         val googleResponse = body.utf8String
         numOpenRequests = numOpenRequests - 1
         queryNext()
-        log.info(s"Success response for $unformattedAddress: ${textSample(googleResponse)}")
+        log.info(s"Success response for #$id: ${textSample(googleResponse)}")
 
         AddressParser.findGoogleGeocoderFatalErrorFromJsonResponse(googleResponse) match {
-          case Some(googleGeocoderFatalError) => log.info(googleGeocoderFatalError.toString); fatalError()
+          case Some(googleGeocoderFatalError) => log.info(s"#$id: " + googleGeocoderFatalError.toString); fatalError()
           case None =>
-            db ! SaveGoogleResponse(unformattedAddress, googleResponse)
-            addressParser ! ParseAddress(unformattedAddress, googleResponse)
+            db ! SaveGoogleResponse(id, googleResponse)
+            addressParser ! ParseAddress(id, googleResponse)
         }
       }
 
-    case (unformattedAddress: String, resp @ HttpResponse(code, _, _, _)) =>
-      log.info(s"Request failed, response code: $code for $unformattedAddress")
+    case (id: Int, resp @ HttpResponse(code, _, _, _)) =>
+      log.info(s"Request failed for #$id, response code: $code")
       resp.discardEntityBytes()
       numOpenRequests = numOpenRequests - 1
       queryNext()
@@ -71,15 +71,15 @@ class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors:
       log.info("unexpected message: " + textSample(m))
   }
 
-  def query(unformattedAddress: String) {
+  def query(id: Int, unformattedAddress: String) {
     if (numFatalErrors < maxFatalErrors) {
       numOpenRequests = numOpenRequests + 1
       numRequests = numRequests + 1
-      log.info(s"query #$numRequests: $unformattedAddress")
+      log.info(s"query num $numRequests: #$id, $unformattedAddress")
       val url = AddressParser.url(googleApiKey, unformattedAddress)
       http
         .singleRequest(HttpRequest(uri = url))
-        .map(r => (unformattedAddress, r))
+        .map(r => (id, r))
         .pipeTo(self)
     } else {
       log.info(s"query. ignored because of MaxFatalErrors")
@@ -88,7 +88,8 @@ class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors:
 
   def queryNext() {
     if (queue.nonEmpty) {
-      query(queue.dequeue)
+      val (id: Int, unformattedAddress: String) = queue.dequeue
+      query(id, unformattedAddress)
     }
   }
 

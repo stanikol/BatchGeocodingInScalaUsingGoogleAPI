@@ -157,19 +157,20 @@ We can create the table as follows:
 mysql>
 create database test default character set utf8mb4 collate utf8mb4_unicode_ci;
 use test
-drop table addresses;
+drop table if exists addresses;
 create table addresses(
-unformattedAddress varchar(500) primary key,
-ts timestamp default current_timestamp on update current_timestamp,
-googleResponse text,
-parseGoogleResponseStatus text,
-numResults int,
-formattedAddress varchar(500),
-lat float(10,6), lng float(10,6), mainType varchar(100), types text, viewportArea float,
-administrative_area_level_1 varchar(100), administrative_area_level_2 varchar(100), administrative_area_level_3 varchar(100), administrative_area_level_4 varchar(100), administrative_area_level_5 varchar(100), airport varchar(100), country varchar(100), establishment varchar(100), floor varchar(100), locality varchar(100), natural_feature varchar(100), neighborhood varchar(100), park varchar(100), point_of_interest varchar(100), post_box varchar(100), postal_code varchar(100), postal_code_prefix varchar(100), postal_code_suffix varchar(100), postal_town varchar(100), premise varchar(100), route varchar(100), street_address varchar(100), street_number varchar(100), sublocality varchar(100), sublocality_level_1 varchar(100), sublocality_level_2 varchar(100), sublocality_level_3 varchar(100), sublocality_level_4 varchar(100), sublocality_level_5 varchar(100), subpremise varchar(100), ward varchar(100),
-index(ts), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(numResults), index(formattedAddress),
-index(lat), index(lng), index(mainType), index(types(100)), index(viewportArea),
-index(administrative_area_level_1), index(administrative_area_level_2), index(administrative_area_level_3), index(administrative_area_level_4), index(administrative_area_level_5), index(airport), index(country), index(establishment), index(floor), index(locality), index(natural_feature), index(neighborhood), index(park), index(point_of_interest), index(post_box), index(postal_code), index(postal_code_prefix), index(postal_code_suffix), index(postal_town), index(premise), index(route), index(street_address), index(street_number), index(sublocality), index(sublocality_level_1), index(sublocality_level_2), index(sublocality_level_3), index(sublocality_level_4), index(sublocality_level_5), index(subpremise), index(ward)
+  id int not null auto_increment primary key,
+  unformattedAddress varchar(500) not null,
+  ts timestamp default current_timestamp on update current_timestamp,
+  googleResponse longtext,
+  parseGoogleResponseStatus longtext,
+  numResults int,
+  formattedAddress varchar(500),
+  lat float(10,6), lng float(10,6), mainType varchar(100), types longtext, viewportArea float,
+  administrative_area_level_1 varchar(100), administrative_area_level_2 varchar(100), administrative_area_level_3 varchar(100), administrative_area_level_4 varchar(100), administrative_area_level_5 varchar(100), airport varchar(100), country varchar(100), establishment varchar(100), floor varchar(100), locality varchar(100), natural_feature varchar(100), neighborhood varchar(100), park varchar(100), point_of_interest varchar(100), post_box varchar(100), postal_code varchar(100), postal_code_prefix varchar(100), postal_code_suffix varchar(100), postal_town varchar(100), premise varchar(100), route varchar(100), street_address varchar(100), street_number varchar(100), sublocality varchar(100), sublocality_level_1 varchar(100), sublocality_level_2 varchar(100), sublocality_level_3 varchar(100), sublocality_level_4 varchar(100), sublocality_level_5 varchar(100), subpremise varchar(100), ward varchar(100),
+  unique index(unformattedAddress), index(ts), index(googleResponse), index(parseGoogleResponseStatus), index(numResults), index(formattedAddress),
+  index(lat), index(lng), index(mainType), index(types), index(viewportArea),
+  index(administrative_area_level_1), index(administrative_area_level_2), index(administrative_area_level_3), index(administrative_area_level_4), index(administrative_area_level_5), index(airport), index(country), index(establishment), index(floor), index(locality), index(natural_feature), index(neighborhood), index(park), index(point_of_interest), index(post_box), index(postal_code), index(postal_code_prefix), index(postal_code_suffix), index(postal_town), index(premise), index(route), index(street_address), index(street_number), index(sublocality), index(sublocality_level_1), index(sublocality_level_2), index(sublocality_level_3), index(sublocality_level_4), index(sublocality_level_5), index(subpremise), index(ward)
 ) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_unicode_ci;
 ```
 

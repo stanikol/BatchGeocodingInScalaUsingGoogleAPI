@@ -65,7 +65,7 @@ object BatchParserCmd {
 
   def googleQueryAndParse(system: ActorSystem, maxEntries: Int, googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, dbUrl: String, tableName: String) {
     val conn = Utils.getDbConnection(dbUrl)
-    val unformattedAddresses: List[String] = try {
+    val unformattedAddresses: List[(Int, String)] = try {
       DB.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxEntries)(conn)
     } finally { conn.close() }
 
@@ -75,20 +75,20 @@ object BatchParserCmd {
     val addressParser = system.actorOf(AddressParserActor.props(db), "AddressParser")
     val googleGeocoder = system.actorOf(GoogleGeocoder.props(googleApiKey, maxOpenRequests: Int, maxFatalErrors: Int, db, addressParser), "GoogleAPI")
 
-    unformattedAddresses.foreach(e => googleGeocoder ! GoogleGeocoder.GeoCode(e))
+    unformattedAddresses.foreach { case (id, unformattedAddress) => googleGeocoder ! GoogleGeocoder.GeoCode(id, unformattedAddress) }
   }
 
   def parseOnly(system: ActorSystem, maxEntries: Int, dbUrl: String, tableName: String) {
     val conn = Utils.getDbConnection(dbUrl)
-    val listOfUnformattedAddresseAndResponse: List[(String, String)] = try {
-      DB.getAddressesWithEmptyParseGoogleResponseStatusFromDatabase(tableName, maxEntries)(conn)
+    val googleResponses: List[(Int, String)] = try {
+      DB.getUnparsedGoogleResponsesFromDatabase(tableName, maxEntries)(conn)
     } finally { conn.close() }
 
-    println(s"num listOfUnformattedAddresseAndResponse: ${listOfUnformattedAddresseAndResponse.length}")
+    println(s"num googleResponses: ${googleResponses.length}")
 
     val db = system.actorOf(DB.props(dbUrl, tableName), "DB")
     val addressParser = system.actorOf(AddressParserActor.props(db), "AddressParser")
 
-    listOfUnformattedAddresseAndResponse.foreach { case (unformattedAddress, googleResponse) => addressParser ! AddressParserActor.ParseAddress(unformattedAddress, googleResponse) }
+    googleResponses.foreach { case (id, googleResponse) => addressParser ! AddressParserActor.ParseAddress(id, googleResponse) }
   }
 }
