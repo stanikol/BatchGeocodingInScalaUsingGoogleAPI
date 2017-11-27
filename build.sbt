@@ -16,5 +16,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
   "org.scalaj" %% "scalaj-http" % "2.3.0",
   "org.apache.sis.core" % "sis-referencing" % "0.7",
-  "com.github.nikita-volkov" % "sext" % "0.2.4"
+  "com.github.nikita-volkov" % "sext" % "0.2.4",
+  "com.univocity" % "univocity-parsers" % "2.5.8",
+  "com.ibm.icu" % "icu4j" % "59.1"
 )
