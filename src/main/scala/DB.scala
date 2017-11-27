@@ -25,10 +25,10 @@ object DB {
   val addressComponentTypesNullUpdateStmt: String =
     AddressParser.addressComponentTypes.map(t => s"$t = null").mkString(", ")
 
-  def createTableStmt(tableName: String, addressLength: Int = 500, addressComponentsLength: Int = 100, maxIndexLength: Option[Int] = None): String = {
+  def createTableStmt(tableName: String, addressLength: Int = 500, addressComponentsLength: Int = 100, maxLongTextIndexLength: Int = 100, maxIndexLength: Option[Int] = None): String = {
     val ls = maxIndexLength.map(l => s"($l)").getOrElse("")
     s"""
-      |create table $tableName(
+      |create table $tableName (
       |  id int not null auto_increment primary key,
       |  unformattedAddress varchar($addressLength) not null,
       |  ts timestamp default current_timestamp on update current_timestamp,
@@ -38,10 +38,10 @@ object DB {
       |  formattedAddress varchar($addressLength),
       |  lat float(10,6), lng float(10,6), mainType varchar($addressComponentsLength), types longtext, viewportArea float,
       |  ${AddressParser.addressComponentTypes.map(c => s"$c varchar($addressComponentsLength)").mkString(", ")},
-      |  unique index(unformattedAddress$ls), index(ts), index(googleResponse$ls), index(parseGoogleResponseStatus$ls), index(numResults), index(formattedAddress$ls),
-      |  index(lat), index(lng), index(mainType), index(types$ls), index(viewportArea),
+      |  index(unformattedAddress$ls), index(ts), index(googleResponse($maxLongTextIndexLength)), index(parseGoogleResponseStatus($maxLongTextIndexLength)), index(numResults), index(formattedAddress$ls),
+      |  index(lat), index(lng), index(mainType$ls), index(types($maxLongTextIndexLength)), index(viewportArea),
       |  ${AddressParser.addressComponentTypes.map(c => s"index($c$ls)").mkString(", ")}
-      |) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_unicode_ci
+      |) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_bin
     """.stripMargin
   }
 }
