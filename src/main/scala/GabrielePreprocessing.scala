@@ -6,10 +6,10 @@ import com.univocity.parsers.tsv.{TsvWriter, TsvWriterSettings}
 // script for Gabriele geocoding task
 
 object GabrieleGeocoding extends App {
-  new GabrieleGeocoding(args(0), args(1), args(2)).run()
+  new GabrieleGeocoding(args(0), args(1), args(2), args(3)).run()
 }
 
-class GabrieleGeocoding(addressesTable: String, geocodingTable: String, dbUrl: String) {
+class GabrieleGeocoding(addressTable: String, geocodingTable: String, mappingTable: String, dbUrl: String) {
   implicit val conn: Connection = Utils.getDbConnection(dbUrl)
 
   type UnformattedAddress = String
@@ -77,7 +77,18 @@ class GabrieleGeocoding(addressesTable: String, geocodingTable: String, dbUrl: S
 
   def updateSuccessGeocodedAddresses(successGeocodedAddresses: Map[Address, UnformattedAddress]): Unit = {
     println(s"updateSuccessGeocodedAddresses: ${successGeocodedAddresses.size}")
-//    ???
+    SQL"drop table if exists #$mappingTable".executeUpdate()
+    SQL"create table #$mappingTable like #$addressTable".executeUpdate()
+    SQL"alter table #$mappingTable add unformattedAddress varchar(500), add index(unformattedAddress(100))".executeUpdate()
+
+    val seq = successGeocodedAddresses.toList.map(a => Seq[NamedParameter]("country" -> a._1.country, "address" -> a._1.address, "unformattedAddress" -> a._2))
+
+    val numInserts = BatchSql(s"insert into $mappingTable (STATE_OF_RESIDENCE_CODE, ADDRESS_TEXT, unformattedAddress) values({country}, {address}, {unformattedAddress})", seq.head, seq.tail: _*)
+      .execute().sum
+
+    println(s"numInserts: $numInserts")
+    if (successGeocodedAddresses.size != numInserts)
+      println("warning: successGeocodedAddresses.size != numInserts")
   }
 
 
@@ -94,7 +105,7 @@ class GabrieleGeocoding(addressesTable: String, geocodingTable: String, dbUrl: S
     println("addressesFromDb")
     import anorm.{ Macro, RowParser }
     val parser: RowParser[Address] = Macro.namedParser[Address]
-    SQL"select ADDRESS_TEXT as address, STATE_OF_RESIDENCE_CODE as country from #$addressesTable".as(parser.*).toSet
+    SQL"select ADDRESS_TEXT as address, STATE_OF_RESIDENCE_CODE as country from #$addressTable".as(parser.*).toSet
   }
 
   def getNumResults(implicit conn: Connection): Map[UnformattedAddress, Int] = {
