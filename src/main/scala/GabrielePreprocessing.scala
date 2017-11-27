@@ -28,14 +28,18 @@ class GabrieleGeocoding(addressesTable: String, geocodingTable: String, dbUrl: S
     for (geocodeQueryFormatter <- geocodeQueryFormatters) {
       val remainingAddresses = addresses -- successGeocodedAddresses.keys
 
-      addUnformattedAddresses(remainingAddresses.map(geocodeQueryFormatter))
+      val remainingAddressesFormatted: Set[(Address, UnformattedAddress)] =
+        remainingAddresses.map(address => (address, geocodeQueryFormatter(address)))
+
+      addUnformattedAddresses(remainingAddressesFormatted.map(_._2))
 
       val numResults: Map[UnformattedAddress, Int] = getNumResults
-      numResults.foreach(println)
+      // numResults.foreach(println)
 
       val thisSuccessGeocodedSet: Map[Address, UnformattedAddress] =
-        remainingAddresses.flatMap { address =>
-          val unformattedAddress = geocodeQueryFormatter(address)
+        remainingAddressesFormatted.flatMap { case (address: Address, unformattedAddress: UnformattedAddress) =>
+          // why getOrElse(..., 0)? because it's possible that addUnformattedAddresses has not added this address depending on the encoding used
+          // example: `select "hello" collate utf8_unicode_ci = "héllo" collate utf8_unicode_ci` returns true
           val g = numResults.getOrElse(unformattedAddress, 0)
           if (g > 0) Some(address, unformattedAddress) else None
         }.toMap
@@ -53,7 +57,7 @@ class GabrieleGeocoding(addressesTable: String, geocodingTable: String, dbUrl: S
 
   def addUnformattedAddresses(unformattedAddresses: Set[String]) {
     println(s"addUnformattedAddresses: ${unformattedAddresses.size}")
-    unformattedAddresses.foreach(println)
+    // unformattedAddresses.foreach(println)
 
     if (unformattedAddresses.nonEmpty) {
       SQL"drop table if exists tmp_#$geocodingTable".executeUpdate()
