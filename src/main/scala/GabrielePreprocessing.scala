@@ -3,13 +3,47 @@ import java.sql.Connection
 import anorm._
 import com.univocity.parsers.tsv.{TsvWriter, TsvWriterSettings}
 
-// script for Gabriele geocoding task
+/*
+script for Gabriele geocoding task.
+given a list of addresses (address + country), it uses a simple formatter ("$address, $country") to query google maps.
+from the responses with zero results, it uses another formatter (only $address) to query google maps.
+and finally, from those still zero results, it uses another formatter (remove brackets, remove case postal, and others) to query google maps.
+it creates also a mapping table with the results.
+
+
+create table geocoding_gabriele_list (
+  STATE_OF_RESIDENCE_CODE varchar(100),
+  ADDRESS_TEXT varchar(500),
+  index(STATE_OF_RESIDENCE_CODE), index(ADDRESS_TEXT(100))
+) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_unicode_ci;
+
+# example entries
+insert into geocoding_gabriele_list (ADDRESS_TEXT, STATE_OF_RESIDENCE_CODE) values
+("- CH-1042 Bioley-Orjulaz", "CH"),
+("15 Karamfil Str., ent.G, fl.6, ap.82, 9000 Varna", "BG"),
+("- Intellectual Property Via Pergolesi, 25 I-20124 Milano", "IT"),
+("1 Le Marchant Street P.O. Box 186 St. Peter Port Guernsey", "GB"),
+("1 & 4, avenue Bois PrEau F-92500 Rueil Malmaison", "FR"),
+("Pennygate Bineham Lane Yeovilton Somerset BA22 8EZ", "GB"),
+("10 Impasse du Lavanchon F-38760 Antony", "FR");
+
+
+$ sbt "runMain GabrieleGeocoding <addressTable> <geocodingTable> <mappingTable> <dbUrl>"
+$ sbt "runMain GabrieleGeocoding geocoding_gabriele_list geocoding_gabriele geocoding_gabriele_mapping <dbUrl>"
+you need to create an empty geocoding_gabriele before running the program. the program shows you an example create table stmt for it.
+the GabrieleGeocoding program adds entries to the geocoding_gabriele table, and asks you to run the BatchParserCmd on those.
+
+when done, you run this GabrieleGeocoding program again, and it creates the mappingTable table, and adds more entries to geocoding_gabriele.
+you run BatchParserCmd on those again, and you keep this loop until all the geocodeQueryFormatters (3 in this case) have been executed.
+*/
 
 object GabrieleGeocoding extends App {
   new GabrieleGeocoding(args(0), args(1), args(2), args(3)).run()
 }
 
 class GabrieleGeocoding(addressTable: String, geocodingTable: String, mappingTable: String, dbUrl: String) {
+  println("example create stmt: \n" + DB.createTableStmt(geocodingTable, addressLength = 500, addressComponentsLength = 200, maxLongTextIndexLength = 100, maxIndexLength = Some(100)))
+
   implicit val conn: Connection = Utils.getDbConnection(dbUrl)
 
   type UnformattedAddress = String
@@ -70,7 +104,7 @@ class GabrieleGeocoding(addressTable: String, geocodingTable: String, mappingTab
       val numRowsAdded: Int = SQL"insert into #$geocodingTable (unformattedAddress) select distinct(unformattedAddress) from tmp_#$geocodingTable where unformattedAddress not in (select unformattedAddress from #$geocodingTable)".executeUpdate()
       println(s"numRowsAdded: $numRowsAdded")
       if (numRowsAdded > 0) {
-        throw new Exception("Attention: run the geocoder now")
+        throw new Exception(s"Attention: run the geocoder now.\nand use this query: select count(*) count, numResults from $geocodingTable group by numResults order by count desc;")
       }
     }
   }
