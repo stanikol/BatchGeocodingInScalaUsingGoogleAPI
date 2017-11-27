@@ -213,7 +213,7 @@ $ export googleApiKey="AIzaSyBwG-Zo6me1yd6V2_ZO7L-3K8A0U1122LA"   # update with 
 $ sbt "runMain BatchParserCmd --help"
 Usage: BatchParserCmd [options]
 
-  --op <value>    where value = googleQueryAndParse or parseOnly
+  --op <value>    where value = googleQueryAndParse, googleQueryOnly or parseOnly
   --maxEntries <value>
   --maxGoogleAPIOpenRequests <value>
   --maxGoogleAPIFatalErrors <value>

@@ -17,7 +17,7 @@ object BatchParserCmd {
     override def showUsageOnError = true
 
     opt[String]("op").required.action((x, c) =>
-      c.copy(op = x)).text("googleQueryAndParse or parseOnly")
+      c.copy(op = x)).text("googleQueryAndParse, googleQueryOnly or parseOnly")
 
     opt[Int]("maxEntries").required.action((x, c) =>
       c.copy(maxEntries = x)).text("maxEntries")
@@ -45,12 +45,13 @@ object BatchParserCmd {
       case Some(config) =>
         println("+++ config: " + config)
 
-        require(config.op == "googleQueryAndParse" || config.op == "parseOnly")
+        require(config.op == "googleQueryAndParse" || config.op == "googleQueryOnly" || config.op == "parseOnly")
 
         val system: ActorSystem = ActorSystem("System")
         try {
-          if (config.op == "googleQueryAndParse") {
-            googleQueryAndParse(system, config.maxEntries, config.googleApiKey, config.maxGoogleAPIOpenRequests, config.maxGoogleAPIFatalErrors, config.dbUrl, config.tableName)
+          if (config.op == "googleQueryAndParse" || config.op == "googleQueryOnly") {
+            val parseAddress = config.op == "googleQueryAndParse"
+            googleQueryAndParse(system, config.maxEntries, config.googleApiKey, config.maxGoogleAPIOpenRequests, config.maxGoogleAPIFatalErrors, parseAddress, config.dbUrl, config.tableName)
           } else {
             parseOnly(system, config.maxEntries, config.dbUrl, config.tableName)
           }
@@ -63,7 +64,7 @@ object BatchParserCmd {
     }
   }
 
-  def googleQueryAndParse(system: ActorSystem, maxEntries: Int, googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, dbUrl: String, tableName: String) {
+  def googleQueryAndParse(system: ActorSystem, maxEntries: Int, googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, parseAddress: Boolean, dbUrl: String, tableName: String) {
     val conn = Utils.getDbConnection(dbUrl)
     val unformattedAddresses: List[(Int, String)] = try {
       DB.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxEntries)(conn)
@@ -73,7 +74,7 @@ object BatchParserCmd {
 
     val db = system.actorOf(DB.props(dbUrl, tableName), "DB")
     val addressParser = system.actorOf(AddressParserActor.props(db), "AddressParser")
-    val googleGeocoder = system.actorOf(GoogleGeocoder.props(googleApiKey, maxOpenRequests: Int, maxFatalErrors: Int, db, addressParser), "GoogleAPI")
+    val googleGeocoder = system.actorOf(GoogleGeocoder.props(googleApiKey, maxOpenRequests: Int, maxFatalErrors: Int, db, addressParser, parseAddress), "GoogleAPI")
 
     unformattedAddresses.foreach { case (id, unformattedAddress) => googleGeocoder ! GoogleGeocoder.GeoCode(id, unformattedAddress) }
   }

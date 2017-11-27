@@ -7,12 +7,13 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
 import akka.util.ByteString
 
 object GoogleGeocoder {
-  def props(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef): Props = Props(new GoogleGeocoder(googleApiKey, maxOpenRequests, maxFatalErrors, db, addressParser))
+  def props(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef, parseAddress: Boolean): Props =
+    Props(new GoogleGeocoder(googleApiKey, maxOpenRequests, maxFatalErrors, db, addressParser, parseAddress))
 
   final case class GeoCode(id: Int, unformattedAddress: String)
 }
 
-class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef) extends Actor with ActorLogging {
+class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors: Int, db: ActorRef, addressParser: ActorRef, parseAddress: Boolean) extends Actor with ActorLogging {
   import GoogleGeocoder._
   import AddressParserActor._
   import akka.pattern.pipe
@@ -53,7 +54,8 @@ class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors:
           case Some(googleGeocoderFatalError) => log.info(s"#$id: " + googleGeocoderFatalError.toString); fatalError()
           case None =>
             db ! SaveGoogleResponse(id, googleResponse)
-            addressParser ! ParseAddress(id, googleResponse)
+            if (parseAddress)
+              addressParser ! ParseAddress(id, googleResponse)
         }
       }
 
