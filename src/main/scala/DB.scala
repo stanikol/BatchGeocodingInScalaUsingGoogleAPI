@@ -44,7 +44,7 @@ object DB {
       |  $unique index(unformattedAddress$ls), index(ts), index(googleResponse($maxLongTextIndexLength)), index(parseGoogleResponseStatus($maxLongTextIndexLength)), index(numResults), index(formattedAddress$ls),
       |  index(lat), index(lng), index(mainType$ls), index(types($maxLongTextIndexLength)), index(viewportArea),
       |  ${AddressParser.addressComponentTypes.map(c => s"index($c$ls)").mkString(", ")}
-      |) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_bin
+      |) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_bin row_format=dynamic
     """.stripMargin
   }
 }

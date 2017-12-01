@@ -175,11 +175,11 @@ create table addresses (
   unique index(unformattedAddress), index(ts), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(numResults), index(formattedAddress),
   index(lat), index(lng), index(mainType), index(types(100)), index(viewportArea),
   index(administrative_area_level_1), index(administrative_area_level_2), index(administrative_area_level_3), index(administrative_area_level_4), index(administrative_area_level_5), index(airport), index(country), index(establishment), index(floor), index(locality), index(natural_feature), index(neighborhood), index(park), index(point_of_interest), index(post_box), index(postal_code), index(postal_code_prefix), index(postal_code_suffix), index(postal_town), index(premise), index(route), index(street_address), index(street_number), index(sublocality), index(sublocality_level_1), index(sublocality_level_2), index(sublocality_level_3), index(sublocality_level_4), index(sublocality_level_5), index(subpremise), index(ward)
-) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_bin;
+) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_bin row_format=dynamic;
 ```
 
 Note: we use `float(10,6)` for storing lat and lng, as proposed by the [google api example](https://developers.google.com/maps/solutions/store-locator/clothing-store-locator?csw=1).
-Note: if you get an `ERROR 1709 (HY000): Index column size too large. The maximum column size is 767 bytes.`, add `row_format=dynamic` at the end of the query, or configure correctly mysql server for `row_format dynamic`, or update your mysql server to the latest version.
+Note: if you get an `ERROR 1709 (HY000): Index column size too large. The maximum column size is 767 bytes.`, make sure you added `row_format=dynamic` at the end of the query, or configure correctly mysql server for `row_format dynamic`, or update your mysql server to the latest version.
 Note: if you get an `ERROR 1713 (HY000): Undo log record is too big.`, try updating the table with `alter table addresses row_format=redundant;`
 Note: read about `collate = utf8mb4_bin vs collate = utf8mb4_unicode_ci`;
 
