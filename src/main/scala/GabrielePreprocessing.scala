@@ -80,12 +80,24 @@ class GabrieleGeocoding(addressTable: String, geocodingTable: String, mappingTab
 
 
       successGeocodedAddresses = successGeocodedAddresses ++ thisSuccessGeocodedSet
-
-      updateSuccessGeocodedAddresses(successGeocodedAddresses)
     }
 
-    conn.close()
+    updateSuccessGeocodedAddresses(successGeocodedAddresses)
 
+    println(s"""
+        |you might want to execute the following sql queries:
+        |
+        |create table ${geocodingTable}_details like david.$geocodingTable;
+        |insert into ${geocodingTable}_details select * from $geocodingTable where unformattedAddress in (select unformattedAddress from $mappingTable);
+        |
+        |select count(*), numResults from
+        |$addressTable t
+        |left join $mappingTable m on (t.STATE_OF_RESIDENCE_CODE = m.STATE_OF_RESIDENCE_CODE and t.ADDRESS_TEXT = m.ADDRESS_TEXT)
+        |left join ${geocodingTable}_details d on (m.unformattedAddress = d.unformattedAddress)
+        |group by numResults;
+      """.stripMargin)
+
+    conn.close()
   }
 
 
