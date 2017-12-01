@@ -1,3 +1,4 @@
+import java.security.InvalidParameterException
 import java.sql.Connection
 
 import AddressParser.ParsedAddress
@@ -25,8 +26,10 @@ object DB {
   val addressComponentTypesNullUpdateStmt: String =
     AddressParser.addressComponentTypes.map(t => s"$t = null").mkString(", ")
 
-  def createTableStmt(tableName: String, addressLength: Int = 500, addressComponentsLength: Int = 100, maxLongTextIndexLength: Int = 100, maxIndexLength: Option[Int] = None): String = {
+  def createTableStmt(tableName: String, addressLength: Int = 500, addressComponentsLength: Int = 200, maxLongTextIndexLength: Int = 100, unformattedAddressUnique: Boolean = true, maxIndexLength: Option[Int] = None): String = {
+    if (unformattedAddressUnique && maxIndexLength.isDefined) throw new InvalidParameterException("unformattedAddressUnique && maxIndexLength.isDefined")
     val ls = maxIndexLength.map(l => s"($l)").getOrElse("")
+    val unique = if (unformattedAddressUnique) "unique" else ""
     s"""
       |create table $tableName (
       |  id int not null auto_increment primary key,
@@ -38,7 +41,7 @@ object DB {
       |  formattedAddress varchar($addressLength),
       |  lat float(10,6), lng float(10,6), mainType varchar($addressComponentsLength), types longtext, viewportArea float,
       |  ${AddressParser.addressComponentTypes.map(c => s"$c varchar($addressComponentsLength)").mkString(", ")},
-      |  index(unformattedAddress$ls), index(ts), index(googleResponse($maxLongTextIndexLength)), index(parseGoogleResponseStatus($maxLongTextIndexLength)), index(numResults), index(formattedAddress$ls),
+      |  $unique index(unformattedAddress$ls), index(ts), index(googleResponse($maxLongTextIndexLength)), index(parseGoogleResponseStatus($maxLongTextIndexLength)), index(numResults), index(formattedAddress$ls),
       |  index(lat), index(lng), index(mainType$ls), index(types($maxLongTextIndexLength)), index(viewportArea),
       |  ${AddressParser.addressComponentTypes.map(c => s"index($c$ls)").mkString(", ")}
       |) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_bin

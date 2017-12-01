@@ -170,18 +170,18 @@ create table addresses (
   parseGoogleResponseStatus longtext,
   numResults int,
   formattedAddress varchar(500),
-  lat float(10,6), lng float(10,6), mainType varchar(200), types longtext, viewportArea float,
-  administrative_area_level_1 varchar(200), administrative_area_level_2 varchar(200), administrative_area_level_3 varchar(200), administrative_area_level_4 varchar(200), administrative_area_level_5 varchar(200), airport varchar(200), country varchar(200), establishment varchar(200), floor varchar(200), locality varchar(200), natural_feature varchar(200), neighborhood varchar(200), park varchar(200), point_of_interest varchar(200), post_box varchar(200), postal_code varchar(200), postal_code_prefix varchar(200), postal_code_suffix varchar(200), postal_town varchar(200), premise varchar(200), route varchar(200), street_address varchar(200), street_number varchar(200), sublocality varchar(200), sublocality_level_1 varchar(200), sublocality_level_2 varchar(200), sublocality_level_3 varchar(200), sublocality_level_4 varchar(200), sublocality_level_5 varchar(200), subpremise varchar(200), ward varchar(200),
-  index(unformattedAddress(100)), index(ts), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(numResults), index(formattedAddress(100)),
-  index(lat), index(lng), index(mainType(100)), index(types(100)), index(viewportArea),
-  index(administrative_area_level_1(100)), index(administrative_area_level_2(100)), index(administrative_area_level_3(100)), index(administrative_area_level_4(100)), index(administrative_area_level_5(100)), index(airport(100)), index(country(100)), index(establishment(100)), index(floor(100)), index(locality(100)), index(natural_feature(100)), index(neighborhood(100)), index(park(100)), index(point_of_interest(100)), index(post_box(100)), index(postal_code(100)), index(postal_code_prefix(100)), index(postal_code_suffix(100)), index(postal_town(100)), index(premise(100)), index(route(100)), index(street_address(100)), index(street_number(100)), index(sublocality(100)), index(sublocality_level_1(100)), index(sublocality_level_2(100)), index(sublocality_level_3(100)), index(sublocality_level_4(100)), index(sublocality_level_5(100)), index(subpremise(100)), index(ward(100))
+  lat float(10,6), lng float(10,6), mainType varchar(100), types longtext, viewportArea float,
+  administrative_area_level_1 varchar(100), administrative_area_level_2 varchar(100), administrative_area_level_3 varchar(100), administrative_area_level_4 varchar(100), administrative_area_level_5 varchar(100), airport varchar(100), country varchar(100), establishment varchar(100), floor varchar(100), locality varchar(100), natural_feature varchar(100), neighborhood varchar(100), park varchar(100), point_of_interest varchar(100), post_box varchar(100), postal_code varchar(100), postal_code_prefix varchar(100), postal_code_suffix varchar(100), postal_town varchar(100), premise varchar(100), route varchar(100), street_address varchar(100), street_number varchar(100), sublocality varchar(100), sublocality_level_1 varchar(100), sublocality_level_2 varchar(100), sublocality_level_3 varchar(100), sublocality_level_4 varchar(100), sublocality_level_5 varchar(100), subpremise varchar(100), ward varchar(100),
+  unique index(unformattedAddress), index(ts), index(googleResponse(100)), index(parseGoogleResponseStatus(100)), index(numResults), index(formattedAddress),
+  index(lat), index(lng), index(mainType), index(types(100)), index(viewportArea),
+  index(administrative_area_level_1), index(administrative_area_level_2), index(administrative_area_level_3), index(administrative_area_level_4), index(administrative_area_level_5), index(airport), index(country), index(establishment), index(floor), index(locality), index(natural_feature), index(neighborhood), index(park), index(point_of_interest), index(post_box), index(postal_code), index(postal_code_prefix), index(postal_code_suffix), index(postal_town), index(premise), index(route), index(street_address), index(street_number), index(sublocality), index(sublocality_level_1), index(sublocality_level_2), index(sublocality_level_3), index(sublocality_level_4), index(sublocality_level_5), index(subpremise), index(ward)
 ) engine = InnoDB default character set = utf8mb4 collate = utf8mb4_bin;
 ```
 
 Note: we use `float(10,6)` for storing lat and lng, as proposed by the [google api example](https://developers.google.com/maps/solutions/store-locator/clothing-store-locator?csw=1).
-Note: if you get an `ERROR 1709 (HY000): Index column size too large. The maximum column size is 767 bytes.`, update your mysql server to the latest version.
-Note: if you get an `ERROR 1713 (HY000): Undo log record is too big.`, update the table with `alter table addresses row_format=redundant;`
-
+Note: if you get an `ERROR 1709 (HY000): Index column size too large. The maximum column size is 767 bytes.`, add `row_format=dynamic` at the end of the query, or configure correctly mysql server for `row_format dynamic`, or update your mysql server to the latest version.
+Note: if you get an `ERROR 1713 (HY000): Undo log record is too big.`, try updating the table with `alter table addresses row_format=redundant;`
+Note: read about `collate = utf8mb4_bin vs collate = utf8mb4_unicode_ci`;
 
 We can insert the addresses to query as follows:
 ```
