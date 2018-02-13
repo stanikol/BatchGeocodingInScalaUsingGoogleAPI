@@ -44,19 +44,20 @@ class GoogleGeocoder(googleApiKey: String, maxOpenRequests: Int, maxFatalErrors:
 
     case (id: Int, resp @ HttpResponse(StatusCodes.OK, headers, entity, _)) =>
       log.info(s"Success response coming for #$id")
-      entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
-        val googleResponse = body.utf8String
-        numOpenRequests = numOpenRequests - 1
-        queryNext()
-        log.info(s"Success response for #$id: ${textSample(googleResponse)}")
+      entity.dataBytes.runFold(ByteString(""))(_ ++ _).map((id, _)).pipeTo(self)
 
-        AddressParser.findGoogleGeocoderFatalErrorFromJsonResponse(googleResponse) match {
-          case Some(googleGeocoderFatalError) => log.info(s"#$id: " + googleGeocoderFatalError.toString); fatalError()
-          case None =>
-            db ! SaveGoogleResponse(id, googleResponse)
-            if (parseAddress)
-              addressParser ! ParseAddress(id, googleResponse)
-        }
+    case (id: Int, body: ByteString) =>
+      val googleResponse = body.utf8String
+      numOpenRequests = numOpenRequests - 1
+      queryNext()
+      log.info(s"Success response for #$id: ${textSample(googleResponse)}")
+
+      AddressParser.findGoogleGeocoderFatalErrorFromJsonResponse(googleResponse) match {
+        case Some(googleGeocoderFatalError) => log.info(s"#$id: " + googleGeocoderFatalError.toString); fatalError()
+        case None =>
+          db ! SaveGoogleResponse(id, googleResponse)
+          if (parseAddress)
+            addressParser ! ParseAddress(id, googleResponse)
       }
 
     case (id: Int, resp @ HttpResponse(code, _, _, _)) =>
