@@ -1,10 +1,12 @@
+package akka_parser.old_parser
+
 import java.net.URLEncoder
 
-import Utils.textSample
+import akka_parser.old_parser.Utils.textSample
+import org.apache.sis.metadata.iso.extent.{DefaultGeographicBoundingBox, Extents}
 import play.api.libs.json._
 
 import scala.util.{Failure, Success, Try}
-import org.apache.sis.metadata.iso.extent.{DefaultGeographicBoundingBox, Extents}
 
 object AddressParser {
   // google jsonText response

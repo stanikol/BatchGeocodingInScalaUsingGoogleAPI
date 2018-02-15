@@ -1,0 +1,42 @@
+
+TEST RESULTS
+ I did the test as you described. But with some additional sbt options:
+ ```
+ $ export SBT_OPTS="-Xmx10G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M"
+ $ export dbUrl="jdbc:mysql://localhost/test?user=root&useSSL=false&useUnicode=yes&characterEncoding=utf8"
+ $ export googleApiKey="not_used"
+ $ sbt "runMain BatchParserCmd \
+           --op=googleQueryAndParse \
+           --maxEntries=1000000 \
+           --maxGoogleAPIOpenRequests=10 \
+           --maxGoogleAPIFatalErrors=5 \
+           --googleApiKey=$googleApiKey \
+           --dbUrl=$dbUrl \
+           --tableName=addresses"
+ ```
+ Additional sbt options were needed to overcame memory starvation, because with standard sbt memory settings (I think -Xmx512Mb) program freezed in a middle of the process.
+ I ran tests several times with and without akka.max-open-requests = 32 (issue #5) and the result was the same - all 1000000 in the db were updated.
+ ```
+ mysql> (select 'notnull', count(*) from addresses where not isnull(googleResponse))
+         union all (select 'isnull', count(*) from addresses where isnull(googleResponse))
+         union all (select 'all', count(*) from addresses);
+ +---------+----------+
+ | notnull | count(*) |
+ +---------+----------+
+ | notnull |  1000000 |
+ | isnull  |        0 |
+ | all     |  1000000 |
+ +---------+----------+
+ ```
+ I think issue #5 with lost akka messages, is in fact result of program freezing due to memory starvation. Program freezed (it never quits) and user thought that there were lost messages. But job was not completed - it crashed.
+ Anyway changing of akka.max-open-requests = 32 didn't influenced on test's result. So I couldn't replicate issue #5.
+ I also think that fix that was applied in GoogleGeocoder.scala actually resulted in even more messages in the mailboxes.
+ So if this program is intended to run under heavy load, speed of the data-flow should be restricted with back-pressure. This would resolve all the issues, I presume.
+ I think that Actors (AddressParserActor, DB, GoogleGeocoder) should be refactored into async functions (akka stream Flows) returning some results. Then they could be used to build a stream from reading database to queering google, then Address Parsering, and then saving back to database.
+ Also it seems to me that database access (especially writing part) should be asynchronous: current implementation is writing only one record at time (synchronous call inside an actor).
+ Log files (in archived form) weights 85 Mb, I can send them to you, but there is nothing interesting.
+ If you are satisfied with the report, can I consider the fakeGeoApi to be completed and start working on implementing akka version ?
+ Thanks,
+ Stan.
+
+

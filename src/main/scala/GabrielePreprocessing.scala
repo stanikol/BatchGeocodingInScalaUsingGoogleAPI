@@ -190,7 +190,7 @@ object GabrielePreprocessing {
   def removeAmpersandNumber(src: String) =
     src.replaceAll("(?<![^ ])& +\\d+\\b", "")
 
-  // Eliminate the text between brackets
+  // Eliminate the jsonText between brackets
   // 1 (2F2) Cargil Court Edinburgh Midlothian EH5 3HE, GB
   // (A British Company) 110 Park Street London W1Y 3RB, GB
   // (a Luxembourg Company) Zweigniederlassung St. Gallen Kreuzackerstrasse 8 CH-8000 St. Gallen, CH
@@ -198,7 +198,7 @@ object GabrielePreprocessing {
   def removeBrackets(src: String) =
     src.replaceAll("\\([^)]*\\)", " ")
 
-  // Eliminate the text between '' and "" and '''
+  // Eliminate the jsonText between '' and "" and '''
   // 'Garnedd' Tanysgrafell Bethesda Bangor, Gwynedd LL57 4AJ, GB
   // "Acorn Cottage" The Close Llanfairfechan Gwynedd, GB
   // 'Abergare'' 4 Ferry Road Rhu Dunbartonshire G84 8NF, GB <<< does this really happen?
