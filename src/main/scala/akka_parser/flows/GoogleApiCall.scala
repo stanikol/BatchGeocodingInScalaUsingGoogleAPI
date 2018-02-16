@@ -15,7 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class GoogleApiCall {
 
   protected def buildUrl(googleApiKey: String, unformattedAddress: String): String =
-    s"https://maps.googleapis.com/maps/api/geocode/jsonText?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
+    s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
   def buildFlow(googleApiKey: GoogleApiKey,
                 maxGoogleAPIOpenRequests: Int)
@@ -41,8 +41,8 @@ class GoogleApiCall {
             .map(r => Right(GoogleApiResponse(geoCode.id, r)))
         case resp @ HttpResponse(status, headers, entity, protocol) if(status != StatusCodes.OK) =>
           resp.discardEntityBytes()
-          Future.successful(Left(s"Error $status"))
-      }.recover{case error => Left(s"Error ${error.getMessage}")}
+          Future.successful(Left(s"Bad status code $status for $uri!"))
+      }.recover{case error => Left(s"Error ${error.getMessage} for $uri!")}
     }
   }
 

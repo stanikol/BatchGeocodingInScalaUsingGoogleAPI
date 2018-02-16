@@ -50,10 +50,11 @@ object AkkaParser extends LazyLogging {
         addressesWithEmptyGoogleResponseFromDatabase <- FT(DAO.getAddressesWithEmptyGoogleResponseFromDatabase(connection, config.tableName, config.maxEntries))
         _ = println(s"num unformattedAddresses to query: ${addressesWithEmptyGoogleResponseFromDatabase.length}")
       } yield {
-        val googleApi = new GoogleApiCall {
-          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
-            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
-        }
+        val googleApi = new GoogleApiCall
+//        val googleApi = new GoogleApiCall {
+//          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
+//            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
+//        }
         val googleApiFlow: Flow[GeoCode, GoogleApiResult, _] =
           googleApi buildFlow(GoogleApiKey(config.googleApiKey), config.maxGoogleAPIOpenRequests)
         //
@@ -61,9 +62,10 @@ object AkkaParser extends LazyLogging {
         val countFatalErrors: Flow[GoogleApiResult, GoogleApiResponse, NotUsed] =
           Flow[GoogleApiResult].map {
             case Right(r) => List(r)
-            case Left(_) =>
+            case Left(error) =>
               val errorsLeft = numFatalErrors.getAndDecrement()
-              logger.info(s"fatalError #${config.maxGoogleAPIFatalErrors - errorsLeft} errorsLeft=$errorsLeft")
+              logger.error(s"fatalError #{} errorsLeft={}: {}!",
+                config.maxGoogleAPIFatalErrors - errorsLeft, errorsLeft, error)
               if (errorsLeft <= 0) {
                 logger.info(s"MaxFatalErrors reached. stopping {self.path.name}")
                 system.terminate()
