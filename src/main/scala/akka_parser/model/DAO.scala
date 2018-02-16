@@ -1,10 +1,11 @@
-package akka_parser.flows
+package akka_parser.model
 
 import java.sql.Connection
 
-import akka_parser.model.GoogleApiResponse
+import akka_parser.old_parser.AddressParser
 import akka_parser.old_parser.AddressParser.ParsedAddress
-import akka_parser.old_parser.{AddressParser, Utils}
+import akka_parser.old_parser.Utils._
+import anorm._
 import com.typesafe.scalalogging.Logger
 import old_parser.DB
 import old_parser.DB._
@@ -12,21 +13,17 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import akka_parser.old_parser.Utils._
-import anorm.{SqlParser, _}
 object DAO {
 
   private val logger = Logger(LoggerFactory.getLogger("dao"))
 
-  def getAddressesWithEmptyGoogleResponseFromDatabase(conn: Connection, tableName: String)
-                                                     (maxEntries: Int)
+  def getAddressesWithEmptyGoogleResponseFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
                                                      (implicit executionContext: ExecutionContext)
                                                     : Future[Try[List[(Int, String)]]] = Future{Try{
       DB.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxEntries)(conn)
   }}
 
-  def getUnparsedGoogleResponsesFromDatabase(conn: Connection, tableName: String)
-                                            (maxEntries: Int)
+  def getUnparsedGoogleResponsesFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
                                             (implicit executionContext: ExecutionContext)
                                           : Future[Try[List[(Int, String)]]] = Future{Try{
       DB.getUnparsedGoogleResponsesFromDatabase(tableName, maxEntries)(conn)

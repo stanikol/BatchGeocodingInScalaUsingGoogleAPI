@@ -10,7 +10,7 @@ package object model {
   type Result[T] = Either[String, T]
   type GoogleApiResult = Result[GoogleApiResponse]
   type SaveApiResponseResult = Result[ResultOk.type]
-  type AddressParsingResult = Result[ParsedAddress]
+  type AddressParsingResult = (GoogleApiResponse, Try[Option[ParsedAddress]])
   type SaveAddressResult = Result[ResultOk.type]
 
   case class GeoCode(id: Int, unformattedAddress: String)
@@ -27,6 +27,9 @@ package object model {
   }
 
   object FT {
+
+    def pure[A](a: => A)(implicit ec: ExecutionContext) = FT(Future(Try(a)))
+
     def map[A, B](futureTry: FT[A])(f: A => B)(implicit ec: ExecutionContext): FT[B] = {
       val future: Future[Try[B]] = futureTry.ft.map {
         case Success(a) => Try(f(a))
