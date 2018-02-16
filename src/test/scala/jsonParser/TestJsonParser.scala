@@ -24,7 +24,7 @@ class  TestJsonParser extends AsyncWordSpec with Matchers with BeforeAndAfterAll
       assert(testRespond.isDefined)
     }
 
-    "and return None on bad" in {
+    "Throw `GoogleGeocoderFatalError` with bad test response" in {
       assertThrows[GoogleGeocoderFatalError](AddressParser.parseAddressFromJsonResponse(fakeGeoApi.test_responses.InvalidApiKey.jsonText))
     }
 
