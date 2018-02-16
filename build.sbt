@@ -10,7 +10,7 @@ lazy val playVersion     = "2.6.2"
 libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "3.5.0",
 //  "com.typesafe.play" %% "play-jsonText" % playVersion,
-  "com.typesafe.play" %% "play-jsonText" % "2.6.8",
+  "com.typesafe.play" %% "play-json" % "2.6.8",
   "com.typesafe.play" %% "anorm" % "2.5.3", //?  "com.typesafe.play" %% "anorm" % "2.5.1"
   "mysql" % "mysql-connector-java" % "5.1.40",
   "org.postgresql" % "postgresql" % "42.1.3",

@@ -12,7 +12,7 @@ import akka_parser.model.{GeoCode, GoogleApiKey, GoogleApiResponse, GoogleApiRes
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GoogleApi {
+class GoogleApiCall {
 
   protected def buildUrl(googleApiKey: String, unformattedAddress: String): String =
     s"https://maps.googleapis.com/maps/api/geocode/jsonText?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"

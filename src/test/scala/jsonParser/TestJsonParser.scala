@@ -5,7 +5,7 @@ import akka.stream
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.testkit.TestKit
-import akka_parser.flows.GoogleApi
+import akka_parser.flows.GoogleApiCall
 import akka_parser.model.{GeoCode, GoogleApiKey, GoogleApiResponse}
 import akka_parser.old_parser.AddressParser.GoogleGeocoderFatalError
 import fakeGeoApi.test_responses.OdessaUkraine

@@ -31,4 +31,4 @@ CREATE PROCEDURE InsertAddresses(IN NumRows INT)
     END$$
 DELIMITER ;
 
-CALL InsertAddresses(1000);
+CALL InsertAddresses(1000000);

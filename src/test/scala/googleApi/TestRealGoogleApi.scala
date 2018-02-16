@@ -19,8 +19,8 @@ class TestRealGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
 //  implicit val executionContext = system.dispatcher
 
 
-  import akka_parser.flows.GoogleApi
-  val googleApi = new GoogleApi
+  import akka_parser.flows.GoogleApiCall
+  val googleApi = new GoogleApiCall
   import googleApi.buildFlow
 
   override def afterAll {
@@ -31,7 +31,7 @@ class TestRealGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
   val validGoogleApiKey = GoogleApiKey("AIzaSyAl3u33Ea4Nw31iVKP5uPE4KfwW-vnXawc")
   val invalidGoogleApiKey = GoogleApiKey("invalid-key")
 
-  "An GoogleApi " must {
+  "An GoogleApiCall " must {
 
     val odessa = GeoCode(-1, "Odessa, Ukraine")
 
@@ -57,9 +57,9 @@ class TestRealGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
 
   }
 
-//  "GoogleApi.flow" must {
+//  "GoogleApiCall.flow" must {
 //
-//    val testGoogleApiFlow = new GoogleApi{
+//    val testGoogleApiFlow = new GoogleApiCall{
 //      override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
 //        "http://localhost:12500/test"
 //    }.buildFlow(validGoogleApiKey, 1)
