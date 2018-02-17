@@ -10,7 +10,7 @@ package object model {
   type Result[T] = Either[String, T]
   type GoogleApiResult = Result[GoogleApiResponse]
   type AddressParsingResult = (GoogleApiResponse, Try[Option[ParsedAddress]])
-//  type SaveApiResponseResult = Result[ResultOk.type]
+//  type SaveApiResponseResultSink = Result[ResultOk.type]
 //  type SaveAddressResult = Result[ResultOk.type]
 
   case class GeoCode(id: Int, unformattedAddress: String)

@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.stream.{ActorMaterializer, KillSwitches, Materializer}
 import akka_parser.BatchParserCmd2.Config
-import akka_parser.flows.{GoogleApiCall, JsonParser, SaveAddressParsingResult, SaveApiResponseResult}
+import akka_parser.flows.{GoogleApiFlow, AddressParserFlow, SaveAddressParsingResultFlow, SaveApiResponseResultSink}
 import akka_parser.model._
 import akka_parser.old_parser.Utils
 import com.typesafe.scalalogging.LazyLogging
@@ -36,11 +36,11 @@ object AkkaParser extends LazyLogging {
         val sourceUnparsedGoogleResponsesFromDatabase: Source[GoogleApiResponse, NotUsed] =
           Source(googleResponses.map((GoogleApiResponse.apply _).tupled))
         val parserFlow: Flow[GoogleApiResponse, AddressParsingResult, NotUsed] =
-          JsonParser.buildFlow(100)
+          AddressParserFlow.buildFlow(100)
         //
         sourceUnparsedGoogleResponsesFromDatabase
           .via(parserFlow)
-            .via(SaveAddressParsingResult.buildFlow(config.dbUrl, config.tableName)(10))
+            .via(SaveAddressParsingResultFlow.buildFlow(config.dbUrl, config.tableName)(10))
               .runWith(Sink.ignore)
                 .map(_=>terminateActorSystem)
       }
@@ -50,46 +50,30 @@ object AkkaParser extends LazyLogging {
         addressesWithEmptyGoogleResponseFromDatabase <- FT(DAO.getAddressesWithEmptyGoogleResponseFromDatabase(connection, config.tableName, config.maxEntries))
         _ = println(s"num unformattedAddresses to query: ${addressesWithEmptyGoogleResponseFromDatabase.length}")
       } yield {
-        val googleApi = new GoogleApiCall
-//        val googleApi = new GoogleApiCall {
+        val googleApi = new GoogleApiFlow
+//        val googleApi = new GoogleApiFlow {
 //          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
 //            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
 //        }
-        val googleApiFlow: Flow[GeoCode, GoogleApiResult, _] =
-          googleApi buildFlow(GoogleApiKey(config.googleApiKey), config.maxGoogleAPIOpenRequests)
+        val googleApiFlow: Flow[GeoCode, GoogleApiResponse, _] =
+          googleApi buildFlow(config.dbUrl,
+                              config.tableName,
+                              GoogleApiKey(config.googleApiKey),
+                              config.maxGoogleAPIOpenRequests,
+                              config.maxGoogleAPIFatalErrors)
         //
-        val killSwitch = KillSwitches.shared("numFatalErrors")
-        val numFatalErrors = new AtomicInteger(config.maxGoogleAPIFatalErrors - 1)
-        val countFatalErrors: Flow[GoogleApiResult, GoogleApiResponse, NotUsed] =
-          Flow[GoogleApiResult].map {
-            case Right(r) => List(r)
-            case Left(error) =>
-              val errorsLeft = numFatalErrors.getAndDecrement()
-              logger.error(s"fatalError #{} errorsLeft={}: {}!",
-                config.maxGoogleAPIFatalErrors - errorsLeft, errorsLeft, error)
-              if (errorsLeft <= 0) {
-                logger.info(s"MaxFatalErrors reached. stopping {self.path.name}")
-//                system.terminate()
-                killSwitch.shutdown()
-              }
-              List.empty
-          }.mapConcat(identity)
-        //
-        val sourceGoogleApiResponse: Source[GoogleApiResponse, NotUsed] =
-          Source(addressesWithEmptyGoogleResponseFromDatabase.map((GeoCode.apply _).tupled))
-            .via(googleApiFlow)
-            .via(killSwitch.flow)
-            .alsoTo(SaveApiResponseResult.buildSink(config.dbUrl, config.tableName))
-            .via(countFatalErrors)
+        val sourceGoogleApiQueryAndSave: Source[GoogleApiResponse, NotUsed] =
+            Source(addressesWithEmptyGoogleResponseFromDatabase.map((GeoCode.apply _).tupled))
+              .via(googleApiFlow)
         //
         if(config.op == "googleQueryOnly"){
-            sourceGoogleApiResponse
+            sourceGoogleApiQueryAndSave
                   .runWith(Sink.ignore)
                     .map(_=>terminateActorSystem)
         } else {
-          sourceGoogleApiResponse
-            .via(JsonParser.buildFlow(3))
-            .via(SaveAddressParsingResult.buildFlow(config.dbUrl, config.tableName)(10))
+          sourceGoogleApiQueryAndSave
+            .via(AddressParserFlow.buildFlow(3))
+            .via(SaveAddressParsingResultFlow.buildFlow(config.dbUrl, config.tableName)(10))
             .runWith(Sink.ignore)
             .map(_=>terminateActorSystem)
 

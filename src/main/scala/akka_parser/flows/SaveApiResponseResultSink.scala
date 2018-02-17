@@ -1,16 +1,13 @@
 package akka_parser.flows
 
-import akka.{Done, NotUsed}
-import akka.stream.scaladsl.{Flow, Sink}
-import akka_parser.model
-import akka_parser.model.{AddressParsingResult, DAO, FT, GoogleApiResult}
+import akka.Done
+import akka.stream.scaladsl.Sink
+import akka_parser.model.{DAO, FT, GoogleApiResult}
 import akka_parser.old_parser.Utils
-import old_parser.DB
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
-object SaveApiResponseResult {
+object SaveApiResponseResultSink {
 
   def buildSink(dbUrl: String, tableName: String)
               (implicit executionContext: ExecutionContext): Sink[GoogleApiResult, Future[Done]] =

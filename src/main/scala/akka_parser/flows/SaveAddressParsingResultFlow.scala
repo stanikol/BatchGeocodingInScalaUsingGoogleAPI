@@ -10,7 +10,7 @@ import akka_parser.old_parser.Utils
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-object SaveAddressParsingResult {
+object SaveAddressParsingResultFlow {
 
   def buildFlow(dbUrl: String, tableName: String)
                (parallelism: Int)

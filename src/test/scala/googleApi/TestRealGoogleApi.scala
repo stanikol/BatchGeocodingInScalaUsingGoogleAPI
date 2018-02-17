@@ -6,6 +6,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
 import akka_parser.model.{GeoCode, GoogleApiKey, GoogleApiResponse}
+import com.typesafe.config.ConfigFactory
 import org.scalatest._
 import fakeGeoApi.test_responses.{InvalidApiKey, OdessaUkraine}
 
@@ -19,8 +20,8 @@ class TestRealGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
 //  implicit val executionContext = system.dispatcher
 
 
-  import akka_parser.flows.GoogleApiCall
-  val googleApi = new GoogleApiCall
+  import akka_parser.flows.GoogleApiFlow
+  val googleApi = new GoogleApiFlow
   import googleApi.buildFlow
 
   override def afterAll {
@@ -28,38 +29,40 @@ class TestRealGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
 //    system.terminate()
   }
 
-  val validGoogleApiKey = GoogleApiKey("AIzaSyAl3u33Ea4Nw31iVKP5uPE4KfwW-vnXawc")
+  val config = ConfigFactory.load()
+  val dbUrl = config.getString("dbUrl")
+  val tableName = "addresses"
+  val validGoogleApiKey = GoogleApiKey(config.getString("googleApiKey"))
   val invalidGoogleApiKey = GoogleApiKey("invalid-key")
 
-  "An GoogleApiCall " must {
+  "An GoogleApiFlow " must {
 
     val odessa = GeoCode(-1, "Odessa, Ukraine")
 
     "answer with bad result with invalid GoogleApiKey" in {
-      val googleApiFlow = buildFlow(invalidGoogleApiKey, 1)
+      val googleApiFlow = buildFlow(dbUrl, tableName, invalidGoogleApiKey, 1, 5)
       val testStream = stream.scaladsl.Source.single(odessa).via(googleApiFlow)
       testStream.runWith(Sink.head).map{
-        case Right(GoogleApiResponse(_id, body)) =>
+        case GoogleApiResponse(_id, body) =>
           assert(body == InvalidApiKey.jsonText && _id == -1)
         case _ => assert(false)
       }
     }
 
     "answer with OK result with valid GoogleApiKey" in {
-      val googleApiFlow = buildFlow(validGoogleApiKey, 1)
+      val googleApiFlow = buildFlow(dbUrl, tableName, validGoogleApiKey, 1, 5)
       val testStream = stream.scaladsl.Source.single(odessa).via(googleApiFlow)
       testStream.runWith(Sink.head).map{
-        case Right(GoogleApiResponse(_id, body)) =>
+        case GoogleApiResponse(_id, body) =>
           assert(body == OdessaUkraine.jsonText && _id == -1)
-        case _ => assert(false)
       }
     }
 
   }
 
-//  "GoogleApiCall.flow" must {
+//  "GoogleApiFlow.flow" must {
 //
-//    val testGoogleApiFlow = new GoogleApiCall{
+//    val testGoogleApiFlow = new GoogleApiFlow{
 //      override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
 //        "http://localhost:12500/test"
 //    }.buildFlow(validGoogleApiKey, 1)

@@ -1,6 +1,6 @@
 //import akka.actor.ActorSystem
 //import akka.testkit.{ImplicitSender, TestActors, TestKit, TestProbe}
-//import akka_parser.flows.GoogleApiCall.GoogleApiResult
+//import akka_parser.flows.GoogleApiFlow.GoogleApiResult
 //import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 //
 //import concurrent.duration._
