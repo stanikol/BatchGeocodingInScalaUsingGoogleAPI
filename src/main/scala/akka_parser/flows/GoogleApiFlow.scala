@@ -42,7 +42,7 @@ class GoogleApiFlow extends StrictLogging{
 
     val http = Http(actorSystem)
 
-    def queryFlow(implicit executionContext: ExecutionContext): Flow[GeoCode, GoogleApiResult, _] = Flow[GeoCode].mapAsync(maxGoogleAPIOpenRequests){ geoCode: GeoCode =>
+    private def queryFlow(implicit executionContext: ExecutionContext): Flow[GeoCode, GoogleApiResult, _] = Flow[GeoCode].mapAsync(maxGoogleAPIOpenRequests){ geoCode: GeoCode =>
       val uri = buildUrl(googleApiKey.value, geoCode.unformattedAddress)
       http.singleRequest(HttpRequest(uri = uri)).flatMap{
         case resp @ HttpResponse(status, headers, entity, protocol) if(status == StatusCodes.OK) =>
@@ -76,8 +76,8 @@ class GoogleApiFlow extends StrictLogging{
 
       val flow: Flow[GeoCode, GoogleApiResponse, _] = queryFlow
         .via(killSwitch.flow)
-        .alsoTo(SaveApiResponseResultSink.buildSink(dbUrl, tableName))
         .via(countFatalErrors)
+        .alsoTo(SaveApiResponseResultSink.buildSink(dbUrl, tableName))
 
       flow
     }
