@@ -37,12 +37,26 @@ class GoogleApiFlow extends StrictLogging{
                             googleApiKey: GoogleApiKey,
                             maxGoogleAPIOpenRequests: Int,
                             maxGoogleAPIFatalErrors: Int)
-                   (implicit actorSystem: ActorSystem,
-                    materialize: Materializer) {
+                           (implicit executionContext: ExecutionContext,
+                            actorSystem: ActorSystem,
+                            materialize: Materializer)
+  {
 
     val http = Http(actorSystem)
 
-    private def queryFlow(implicit executionContext: ExecutionContext): Flow[GeoCode, GoogleApiResult, _] = Flow[GeoCode].mapAsync(maxGoogleAPIOpenRequests){ geoCode: GeoCode =>
+//    private def queryGoogleApiFlow(implicit executionContext: ExecutionContext): Flow[GeoCode, GoogleApiResult, _] = Flow[GeoCode].mapAsync(maxGoogleAPIOpenRequests){ geoCode: GeoCode =>
+//      val uri = buildUrl(googleApiKey.value, geoCode.unformattedAddress)
+//      http.singleRequest(HttpRequest(uri = uri)).flatMap{
+//        case resp @ HttpResponse(status, headers, entity, protocol) if(status == StatusCodes.OK) =>
+//          entity.dataBytes.runFold(ByteString(""))(_ ++ _)
+//            .map(_.utf8String)
+//            .map(r => Right(GoogleApiResponse(geoCode.id, r)))
+//        case resp @ HttpResponse(status, headers, entity, protocol) if(status != StatusCodes.OK) =>
+//          resp.discardEntityBytes()
+//          Future.successful(Left(s"Bad status code $status for $uri!"))
+//      }.recover{case error => Left(s"Error ${error.getMessage} for $uri!")}
+//    }
+    val queryGoogleApiFlow: Flow[GeoCode, GoogleApiResult, _] = Flow[GeoCode].mapAsync(maxGoogleAPIOpenRequests){ geoCode: GeoCode =>
       val uri = buildUrl(googleApiKey.value, geoCode.unformattedAddress)
       http.singleRequest(HttpRequest(uri = uri)).flatMap{
         case resp @ HttpResponse(status, headers, entity, protocol) if(status == StatusCodes.OK) =>
@@ -55,8 +69,8 @@ class GoogleApiFlow extends StrictLogging{
       }.recover{case error => Left(s"Error ${error.getMessage} for $uri!")}
     }
 
-//    def build(implicit executionContext: ExecutionContext): Flow[GeoCode, GoogleApiResult, _] = {
-    def build(implicit executionContext: ExecutionContext): Flow[GeoCode, GoogleApiResponse, _] = {
+    def build: Flow[GeoCode, GoogleApiResponse, _] = {
+      //
       val killSwitch = KillSwitches.shared("numFatalErrors")
       val numFatalErrors = new AtomicInteger(maxGoogleAPIFatalErrors - 1)
       val countFatalErrors: Flow[GoogleApiResult, GoogleApiResponse, NotUsed] =
@@ -74,7 +88,7 @@ class GoogleApiFlow extends StrictLogging{
             List.empty
         }.mapConcat(identity)
 
-      val flow: Flow[GeoCode, GoogleApiResponse, _] = queryFlow
+      val flow: Flow[GeoCode, GoogleApiResponse, _] = queryGoogleApiFlow
         .via(killSwitch.flow)
         .via(countFatalErrors)
         .alsoTo(SaveApiResponseResultSink.buildSink(dbUrl, tableName))

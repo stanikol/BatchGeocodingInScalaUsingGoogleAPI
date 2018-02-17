@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 export googleApiKey=googleApiKey
-#export googleApiKey="AIzaSyAl3u33Ea4Nw31iVKP5uPE4KfwW-vnXawc"
 export dbUrl="jdbc:mysql://localhost/test?user=root&useSSL=false&useUnicode=yes&characterEncoding=utf8"
 
 #--op=googleQueryAndParse
