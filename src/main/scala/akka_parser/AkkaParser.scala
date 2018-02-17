@@ -50,11 +50,11 @@ object AkkaParser extends LazyLogging {
         addressesWithEmptyGoogleResponseFromDatabase <- FT(DAO.getAddressesWithEmptyGoogleResponseFromDatabase(connection, config.tableName, config.maxEntries))
         _ = println(s"num unformattedAddresses to query: ${addressesWithEmptyGoogleResponseFromDatabase.length}")
       } yield {
-//        val googleApi = new GoogleApiCall
-        val googleApi = new GoogleApiCall {
-          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
-            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
-        }
+        val googleApi = new GoogleApiCall
+//        val googleApi = new GoogleApiCall {
+//          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
+//            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
+//        }
         val googleApiFlow: Flow[GeoCode, GoogleApiResult, _] =
           googleApi buildFlow(GoogleApiKey(config.googleApiKey), config.maxGoogleAPIOpenRequests)
         //
