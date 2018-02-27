@@ -12,6 +12,7 @@ libraryDependencies ++= Seq(
 //  "com.typesafe.play" %% "play-jsonText" % playVersion,
   "com.typesafe.play" %% "play-json" % "2.6.8",
   "com.typesafe.play" %% "anorm" % "2.5.3", //?  "com.typesafe.play" %% "anorm" % "2.5.1"
+  "com.typesafe.play" %% "anorm-akka" % "2.5.3", //?  "com.typesafe.play" %% "anorm" % "2.5.1"
   "mysql" % "mysql-connector-java" % "5.1.40",
   "org.postgresql" % "postgresql" % "42.1.3",
 //  "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,

@@ -1,6 +1,7 @@
 package akka_parser.flows
 
 import java.net.URLEncoder
+import java.sql.Connection
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.NotUsed
@@ -20,7 +21,7 @@ class GoogleApiFlow extends StrictLogging{
   protected def buildUrl(googleApiKey: String, unformattedAddress: String): String =
     s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
-  def buildFlow(dbUrl: String,
+  def buildFlow(connection: Connection,
                 tableName: String,
                 googleApiKey: GoogleApiKey,
                 maxGoogleAPIOpenRequests: Int,
@@ -29,10 +30,10 @@ class GoogleApiFlow extends StrictLogging{
                 executionContext: ExecutionContext,
                 actorSystem: ActorSystem,
                 materialize: Materializer) =
-    new FlowBuilder(dbUrl, tableName, googleApiKey, maxGoogleAPIOpenRequests, maxGoogleAPIFatalErrors).build
+    new FlowBuilder(connection, tableName, googleApiKey, maxGoogleAPIOpenRequests, maxGoogleAPIFatalErrors).build
 
 
-  private class FlowBuilder(dbUrl: String,
+  private class FlowBuilder(connection: Connection,
                             tableName: String,
                             googleApiKey: GoogleApiKey,
                             maxGoogleAPIOpenRequests: Int,
@@ -91,7 +92,7 @@ class GoogleApiFlow extends StrictLogging{
       val flow: Flow[GeoCode, GoogleApiResponse, _] = queryGoogleApiFlow
         .via(killSwitch.flow)
         .via(countFatalErrors)
-        .alsoTo(SaveApiResponseResultSink.buildSink(dbUrl, tableName))
+        .alsoTo(SaveApiResponseResultSink.buildSink(connection, tableName))
 
       flow
     }

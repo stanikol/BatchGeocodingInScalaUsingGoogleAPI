@@ -5,6 +5,7 @@ import akka.stream
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka_parser.model.{GeoCode, GoogleApiKey, GoogleApiResponse}
+import akka_parser.old_parser.Utils
 import com.typesafe.config.ConfigFactory
 import fakeGeoApi.test_responses.OdessaUkraine
 import org.scalatest._
@@ -31,6 +32,7 @@ class TestFakeGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
 
   val config = ConfigFactory.load()
   val dbUrl = config.getString("dbUrl")
+  val dbConn = Utils.getDbConnection(dbUrl)
   val tableName = "addresses"
   val validGoogleApiKey = GoogleApiKey(config.getString("googleApiKey"))
 //  val validGoogleApiKey = GoogleApiKey("AIzaSyAl3u33Ea4Nw31iVKP5uPE4KfwW-vnXawc")
@@ -41,7 +43,7 @@ class TestFakeGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
     val odessa = GeoCode(-1, "Odessa, Ukraine")
 
     "answer with OK result with valid GoogleApiKey" in {
-      val googleApiFlow = buildFlow(dbUrl, tableName, validGoogleApiKey, 32, 5)
+      val googleApiFlow = buildFlow(dbConn, tableName, validGoogleApiKey, 32, 5)
       val testLength = 333
       val testStream = stream.scaladsl.Source.repeat(odessa).take(testLength).via(googleApiFlow)
       testStream.runWith(Sink.seq).map{results =>
