@@ -5,7 +5,7 @@ import akka.stream
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.TestKit
-import akka_parser.model.{GeoCode, GoogleApiKey, GoogleApiResponse}
+import model.{GeoCode, GoogleApiKey, GoogleApiResponse}
 import akka_parser.old_parser.Utils
 import com.typesafe.config.ConfigFactory
 import org.scalatest._
@@ -21,7 +21,7 @@ class TestRealGoogleApi extends AsyncWordSpec with Matchers with BeforeAndAfterA
 //  implicit val executionContext = system.dispatcher
 
 
-  import akka_parser.flows.GoogleApiFlow
+  import flows.GoogleApiFlow
   val googleApi = new GoogleApiFlow
   import googleApi.buildFlow
 

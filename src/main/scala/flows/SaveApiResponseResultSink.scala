@@ -1,10 +1,10 @@
-package akka_parser.flows
+package flows
 
 import java.sql.Connection
 
 import akka.Done
 import akka.stream.scaladsl.Sink
-import akka_parser.model.{DAO, GoogleApiResponse, GoogleApiResult}
+import model.{DAO, GoogleApiResponse, GoogleApiResult}
 import akka_parser.old_parser.Utils
 
 import scala.concurrent.{ExecutionContext, Future}

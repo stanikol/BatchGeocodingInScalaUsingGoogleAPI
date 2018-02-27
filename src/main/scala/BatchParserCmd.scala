@@ -1,6 +1,5 @@
-package akka_parser
 
-object BatchParserCmd2 {
+object BatchParserCmd {
   case class Config(
                    op: String = "",
                    maxEntries: Int = 100,
@@ -44,7 +43,9 @@ object BatchParserCmd2 {
         println("+++ config: " + config)
         require(config.op == "googleQueryAndParse" || config.op == "googleQueryOnly" || config.op == "parseOnly")
         AkkaParser.main(config)
-      case None => sys.exit(-1)
+      case None =>
+        println("Invalid arguments!")
+        sys.exit(-1)
     }
   }
 

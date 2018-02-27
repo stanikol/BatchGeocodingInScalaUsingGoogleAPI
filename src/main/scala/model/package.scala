@@ -1,4 +1,3 @@
-package akka_parser
 
 import akka_parser.old_parser.AddressParser.ParsedAddress
 

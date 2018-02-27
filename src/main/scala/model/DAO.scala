@@ -1,4 +1,4 @@
-package akka_parser.model
+package model
 
 import java.sql.Connection
 

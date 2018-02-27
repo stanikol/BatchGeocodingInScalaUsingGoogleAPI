@@ -1,19 +1,23 @@
-package akka_parser.flows
+package flows
 
 import java.net.URLEncoder
 import java.sql.Connection
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
+import akka.pattern.after
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
+import akka.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
 import akka.stream._
-import akka.stream.scaladsl.Flow
+import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
-import akka_parser.model.{GeoCode, GoogleApiKey, GoogleApiResponse, GoogleApiResult}
+import model.{GeoCode, GoogleApiKey, GoogleApiResponse, GoogleApiResult}
 import com.typesafe.scalalogging.StrictLogging
 
+import concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 class GoogleApiFlow extends StrictLogging{
@@ -45,21 +49,10 @@ class GoogleApiFlow extends StrictLogging{
 
     val http = Http(actorSystem)
 
-//    private def queryGoogleApiFlow(implicit executionContext: ExecutionContext): Flow[GeoCode, GoogleApiResult, _] = Flow[GeoCode].mapAsync(maxGoogleAPIOpenRequests){ geoCode: GeoCode =>
-//      val uri = buildUrl(googleApiKey.value, geoCode.unformattedAddress)
-//      http.singleRequest(HttpRequest(uri = uri)).flatMap{
-//        case resp @ HttpResponse(status, headers, entity, protocol) if(status == StatusCodes.OK) =>
-//          entity.dataBytes.runFold(ByteString(""))(_ ++ _)
-//            .map(_.utf8String)
-//            .map(r => Right(GoogleApiResponse(geoCode.id, r)))
-//        case resp @ HttpResponse(status, headers, entity, protocol) if(status != StatusCodes.OK) =>
-//          resp.discardEntityBytes()
-//          Future.successful(Left(s"Bad status code $status for $uri!"))
-//      }.recover{case error => Left(s"Error ${error.getMessage} for $uri!")}
-//    }
     val queryGoogleApiFlow: Flow[GeoCode, GoogleApiResult, _] = Flow[GeoCode].mapAsync(maxGoogleAPIOpenRequests){ geoCode: GeoCode =>
       val uri = buildUrl(googleApiKey.value, geoCode.unformattedAddress)
-      http.singleRequest(HttpRequest(uri = uri)).flatMap{
+
+      val httpFuture = http.singleRequest(request = HttpRequest(uri = uri)).flatMap{
         case resp @ HttpResponse(status, headers, entity, protocol) if(status == StatusCodes.OK) =>
           entity.dataBytes.runFold(ByteString(""))(_ ++ _)
             .map(_.utf8String)
@@ -67,8 +60,18 @@ class GoogleApiFlow extends StrictLogging{
         case resp @ HttpResponse(status, headers, entity, protocol) if(status != StatusCodes.OK) =>
           resp.discardEntityBytes()
           Future.successful(Left(s"Bad status code $status for $uri!"))
-      }.recover{case error => Left(s"Error ${error.getMessage} for $uri!")}
-    }
+      }
+      .recover{ case error: akka.stream.StreamTcpException =>
+        val msg = s"Error ${error.getMessage} for $uri!"
+        logger.error(msg)
+        Left(msg)
+          throw new TimeoutException(msg)
+      }
+    httpFuture
+//      Future.firstCompletedOf(List(httpFuture,
+//                                after(3.second, actorSystem.scheduler)(Future.failed(new TimeoutException(uri)))))
+    }//.withAttributes(ActorAttributes.supervisionStrategy(decider))
+//      .recoverWithRetries(-1, {case _ => Source.single(1)})
 
     def build: Flow[GeoCode, GoogleApiResponse, _] = {
       //
@@ -90,12 +93,20 @@ class GoogleApiFlow extends StrictLogging{
         }.mapConcat(identity)
 
       val flow: Flow[GeoCode, GoogleApiResponse, _] = queryGoogleApiFlow
+//          .recoverWithRetries(-1, {case _ => queryGoogleApiFlow.initialDelay(10.second)})
         .via(killSwitch.flow)
         .via(countFatalErrors)
         .alsoTo(SaveApiResponseResultSink.buildSink(connection, tableName))
 
       flow
     }
+  }
+
+
+  val decider: Supervision.Decider = {
+    case exept ⇒
+      logger.error(exept.getMessage)
+      Supervision.Restart
   }
 
 }

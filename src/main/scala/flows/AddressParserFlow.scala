@@ -1,8 +1,8 @@
-package akka_parser.flows
+package flows
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import akka_parser.model.{AddressParsingResult, GoogleApiResponse}
+import model.{AddressParsingResult, GoogleApiResponse}
 import akka_parser.old_parser.AddressParser
 
 import scala.concurrent.{ExecutionContext, Future}

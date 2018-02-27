@@ -5,7 +5,7 @@ export dbUrl="jdbc:mysql://localhost/test?user=root&useSSL=false&useUnicode=yes&
 #--op=googleQueryAndParse
 #--op=parseOnly
 #--op=googleQueryOnly
-sbt "runMain akka_parser.BatchParserCmd2
+sbt "runMain BatchParserCmd
 --op=googleQueryAndParse
 --maxEntries=1000000
 --maxGoogleAPIOpenRequests=32
