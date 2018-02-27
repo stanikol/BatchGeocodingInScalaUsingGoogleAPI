@@ -31,7 +31,7 @@ CREATE PROCEDURE InsertAddresses(IN NumRows INT)
     END$$
 DELIMITER ;
 
-CALL InsertAddresses(1000);
+-- CALL InsertAddresses(10);
 
 
 insert into addresses (unformattedAddress) values
@@ -39,4 +39,5 @@ insert into addresses (unformattedAddress) values
   ('Statue, Palayam, Thiruvananthapuram, Kerala 695001, India'),
   ('Frankfurt am Main 80, DE'),
   ('(GSF);;INGOLSTAEDTER LANDSTR. 1;;D-8042 NEUHERBERG, DE'),
+  ('invalid D-8042 NEUHERBERG, DE'),
   ('CAREL VAN BYLANDTLAAN 30, LA HAYA NL, NL');

@@ -5,17 +5,18 @@ import akka.stream
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.testkit.TestKit
-import flows.GoogleApiFlow
+import flows.GoogleApi
 import model.{GeoCode, GoogleApiKey, GoogleApiResponse}
-import akka_parser.old_parser.AddressParser.GoogleGeocoderFatalError
 import fakeGeoApi.test_responses.OdessaUkraine
+import geocoding.AddressParser
+import geocoding.AddressParser.GoogleGeocoderFatalError
 import org.scalatest._
 
 class  TestJsonParser extends AsyncWordSpec with Matchers with BeforeAndAfterAll  {
   implicit val system = ActorSystem("ComponentLogicTest")
   implicit val materializer = ActorMaterializer()
 
-  import akka_parser.old_parser.AddressParser
+  import geocoding.AddressParser
 
   "An AddressParser.parseAddressFromJsonResponse " must {
 

@@ -3,12 +3,12 @@ package flows
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import model.{AddressParsingResult, GoogleApiResponse}
-import akka_parser.old_parser.AddressParser
+import geocoding.AddressParser
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-object AddressParserFlow {
+object JsonParser {
 
   private def parse(googleResopnse: GoogleApiResponse)
            (implicit executionContext: ExecutionContext)

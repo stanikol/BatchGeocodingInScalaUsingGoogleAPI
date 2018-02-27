@@ -7,7 +7,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
-import fakeGeoApi.test_responses.{GeocodeSampleOk, GeocodeSampleRequestDenied, OdessaUkraine}
+import fakeGeoApi.test_responses.{GeocodeSampleOk, GeocodeSampleRequestDenied, InvalidApiKey, OdessaUkraine}
 
 import scala.io.StdIn
 
@@ -19,6 +19,7 @@ object FakeGeoApiServer {
     implicit val executionContext = system.dispatcher
 
     val jsonReply = HttpEntity(ContentTypes.`application/json`, OdessaUkraine.jsonText)
+    val jsonReplyInvalid = HttpEntity(ContentTypes.`application/json`, InvalidApiKey.jsonText)
 
     val counter = new AtomicLong(0L)
 
@@ -27,7 +28,11 @@ object FakeGeoApiServer {
         path(Remaining) { remainingPath =>
           parameterMap { params =>
             println(remainingPath, params.toString(), counter.getAndIncrement())
-            complete(jsonReply)
+            val reply = if(params.values.exists(_.toLowerCase.contains("invalid"))) jsonReplyInvalid
+                        else jsonReply
+            Thread.sleep(1000)
+            complete(reply)
+//            complete(StatusCodes.Forbidden -> "message")
           }
         }
       }

@@ -1,5 +1,4 @@
-package akka_parser.old_parser
-
+package geocoding
 import java.sql.Connection
 
 import anorm.{Row, SimpleSql}

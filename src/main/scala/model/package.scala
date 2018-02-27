@@ -1,5 +1,5 @@
 
-import akka_parser.old_parser.AddressParser.ParsedAddress
+import geocoding.AddressParser.ParsedAddress
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}

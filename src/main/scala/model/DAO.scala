@@ -2,37 +2,24 @@ package model
 
 import java.sql.Connection
 
+import geocoding.AddressParser.ParsedAddress
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import akka_parser.old_parser.AddressParser
-import akka_parser.old_parser.AddressParser.ParsedAddress
-import akka_parser.old_parser.Utils._
 import anorm._
+import geocoding.Utils._
 import com.typesafe.scalalogging.Logger
-//import old_parser.DB
-//import old_parser.DB._
+import geocoding.AddressParser
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 object DAO {
 
+
   private val logger = Logger(LoggerFactory.getLogger("dao"))
 
-//  def getAddressesWithEmptyGoogleResponseFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
-//                                                     (implicit executionContext: ExecutionContext)
-//                                                    : Future[Try[List[(Int, String)]]] = Future{Try{
-//      DB.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxEntries)(conn)
-//  }}
-//
-//  def getUnparsedGoogleResponsesFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
-//                                            (implicit executionContext: ExecutionContext)
-//                                          : Future[Try[List[(Int, String)]]] = Future{Try{
-//      DB.getUnparsedGoogleResponsesFromDatabase(tableName, maxEntries)(conn)
-//  }}
-
-  def getSourceAddressesWithEmptyGoogleResponseFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
-                               (implicit materializer: Materializer): Source[GeoCode, Future[Int]] = {
+  def getAddressesWithEmptyGoogleResponseFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
+                                                     (implicit materializer: Materializer): Source[GeoCode, Future[Int]] = {
     implicit val connection = conn
     val sql = SQL"select id, unformattedAddress from #$tableName where googleResponse is null limit $maxEntries"
     val parser = (SqlParser.int(1) ~ SqlParser.str(2)).map(r => GeoCode(r._1, r._2))
@@ -40,11 +27,10 @@ object DAO {
   }
 
 
-  def getSourceOfUnparsedGoogleResponsesFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
-               (implicit materializer: Materializer): Source[GoogleApiResponse, Future[Int]] = {
+  def getUnparsedGoogleResponsesFromDatabase(conn: Connection, tableName: String, maxEntries: Int)
+                                            (implicit materializer: Materializer): Source[GoogleApiResponse, Future[Int]] = {
     implicit val connection = conn
     val sql = SQL"select id, googleResponse from #$tableName where googleResponse is not null and parseGoogleResponseStatus is null limit $maxEntries"
-//    val sql = SQL"select id, googleResponse from #$tableName limit $maxEntries"
     val parser = (SqlParser.int(1) ~ SqlParser.str(2)).map(r => GoogleApiResponse(r._1, r._2))
     AkkaStream.source(sql, parser, ColumnAliaser.empty)
   }
@@ -90,9 +76,9 @@ object DAO {
 
 
   val addressComponentTypesUpdateStmt: String =
-    akka_parser.old_parser.AddressParser.addressComponentTypes.map(t => s"$t = {$t}").mkString(", ")
+    AddressParser.addressComponentTypes.map(t => s"$t = {$t}").mkString(", ")
 
   val addressComponentTypesNullUpdateStmt: String =
-    akka_parser.old_parser.AddressParser.addressComponentTypes.map(t => s"$t = null").mkString(", ")
+    AddressParser.addressComponentTypes.map(t => s"$t = null").mkString(", ")
 
 }

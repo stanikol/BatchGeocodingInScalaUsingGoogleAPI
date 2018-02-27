@@ -1,8 +1,7 @@
-package akka_parser.old_parser
-
+package geocoding
 import java.net.URLEncoder
 
-import akka_parser.old_parser.Utils.textSample
+import geocoding.Utils.textSample
 import org.apache.sis.metadata.iso.extent.{DefaultGeographicBoundingBox, Extents}
 import play.api.libs.json._
 

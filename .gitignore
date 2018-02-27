@@ -6,3 +6,4 @@ src/.DS_Store
 src/main/.DS_Store
 src/main/scala/.DS_Store
 src/main/scala/akka_parser/.DS_Store
+/testing/snc.conf
