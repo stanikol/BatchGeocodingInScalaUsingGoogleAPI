@@ -61,4 +61,13 @@ $ export googleApiKey="not_used"
 $ sbt "runMain BatchParserCmd --op=googleQueryAndParse --maxEntries=1000000 --maxGoogleAPIOpenRequests=10 --maxGoogleAPIFatalErrors=5 --googleApiKey="$googleApiKey" --dbUrl="$dbUrl" --tableName=addresses"
 
 
-
+Hi, David.
+(1) I added streaming support when reading from db. So now database reading is streamed row by row.
+(2) FT object is removed.
+(3) Database writing now reuse one shared connection. It also closes nicely.
+(4) GoogleApi, when connection is lost or other TCP error occurs, now constantly retries to query google api again and again.
+(5) Code refined in a way that `git diff` can show what is changed.
+I also tried to add some extra working hours, but probably I failed because they are still not in my working diary, so I wrote message to upwork support.
+I am waiting for your feedback.
+Sincerely,
+Stan
