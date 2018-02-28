@@ -42,3 +42,11 @@ libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.5.9"
 // https://mvnrepository.com/artifact/com.typesafe.akka/akka-stream
 libraryDependencies += "com.typesafe.akka" %% "akka-stream" % "2.5.9"
 
+
+libraryDependencies ++= Seq(
+  "com.typesafe.slick" %% "slick" % "3.2.1",
+  "org.slf4j" % "slf4j-nop" % "1.6.4",
+  "com.typesafe.slick" %% "slick-hikaricp" % "3.2.1"
+)
+
+libraryDependencies += "com.lightbend.akka" %% "akka-stream-alpakka-slick" % "0.17"

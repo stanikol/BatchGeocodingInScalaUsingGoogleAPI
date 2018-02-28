@@ -1,21 +1,17 @@
 package geocoding
 import java.net.URLEncoder
-import java.util.concurrent.TimeUnit
 
-import BatchParserCmd.Config
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, Materializer}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
-import flows.{GoogleApi, JsonParser, SaveAddressParsingResult}
+import flows.{DAOS, GoogleApi, JsonParser}
+import geocoding.BatchParserCmd.Config
 import model._
-import geocoding.Utils._
 
 import scala.concurrent.duration.FiniteDuration
-import scala.io.StdIn
 
 object AkkaParser extends LazyLogging {
 
@@ -27,29 +23,27 @@ object AkkaParser extends LazyLogging {
     implicit val materializer: Materializer = ActorMaterializer()
     implicit val executionContext = system.dispatcher
 
-    val dbConnection = getDbConnection(config.dbUrl)
+    val daos = new DAOS(config.dbUrl)
 
     def terminateSystem() = {
       println("TERMINATING ACTOR SYSTEM ...")
       Http().shutdownAllConnectionPools()
       system.terminate()
-      dbConnection.close()
     }
 
     if(config.op == "parseOnly"){
-      DAO.getUnparsedGoogleResponsesFromDatabase(dbConnection, config.tableName, config.maxEntries)
+        daos.getUnparsedGoogleResponsesFromDatabase(config.tableName, config.maxEntries)
           .via(JsonParser.buildFlow(jsonParserParallelism))
-            .via(SaveAddressParsingResult.buildFlow(dbConnection, config.tableName)(saveAddressParsingResultParallelism))
-              .runWith(Sink.ignore)
-                .map(_=>terminateSystem())
+            .runWith(daos.saveAddressParsingResult(config.tableName))
+              .foreach(_ => terminateSystem())
     } else if(config.op == "googleQueryOnly" || config.op == "googleQueryAndParse") {
-        val googleApi = new GoogleApi
-//        val googleApi = new GoogleApi {
-//          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
-//            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
-//        }
+//        val googleApi = new GoogleApi
+        val googleApi = new GoogleApi {
+          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
+            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
+        }
         val googleApiResponse: Source[GoogleApiResponse, NotUsed] =
-          googleApi buildFlow(dbConnection,
+          googleApi buildFlow(daos,
                               config.tableName,
                               GoogleApiKey(config.googleApiKey),
                               config.maxGoogleAPIOpenRequests,
@@ -61,13 +55,12 @@ object AkkaParser extends LazyLogging {
         if(config.op == "googleQueryOnly"){
           googleApiResponse
                   .runWith(Sink.ignore)
-                    .map(_=>terminateSystem())
+                    .foreach(_=>terminateSystem())
         } else /* config.op == "googleQueryAndParse" */{
           googleApiResponse
             .via(JsonParser.buildFlow(jsonParserParallelism))
-            .via(SaveAddressParsingResult.buildFlow(dbConnection, config.tableName)(saveAddressParsingResultParallelism))
-            .runWith(Sink.ignore)
-            .map(_=>terminateSystem())
+              .runWith(daos.saveAddressParsingResult(config.tableName))
+                .foreach(_=>terminateSystem())
 
         }
 

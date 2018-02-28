@@ -1,7 +1,6 @@
 package flows
 
 import java.net.URLEncoder
-import java.sql.Connection
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -10,20 +9,22 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
 import akka.stream._
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.Logger
 import model._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-class GoogleApi extends StrictLogging{
+class GoogleApi {
+
+  private val logger = Logger("google-api")
 
   protected def buildUrl(googleApiKey: String, unformattedAddress: String): String =
     s"https://maps.googleapis.com/maps/api/geocode/json?address=${URLEncoder.encode(unformattedAddress, "UTF-8")}&key=${URLEncoder.encode(googleApiKey, "UTF-8")}"
 
-  def buildFlow(connection: Connection,
+  def buildFlow(daos: DAOS,
                 tableName: String,
                 googleApiKey: GoogleApiKey,
                 maxGoogleAPIOpenRequests: Int,
@@ -50,8 +51,7 @@ class GoogleApi extends StrictLogging{
           val msg = s"Bad status code $status for $uri!"
           logger.error(msg)
           Future.successful(Left(msg))
-      }
-        .recover {
+      }.recover {
           case error: akka.stream.StreamTcpException =>
             val msg = s"Error ${error.getMessage} for $uri!"
             logger.error(msg)
@@ -63,7 +63,6 @@ class GoogleApi extends StrictLogging{
         }
     }
 
-    //
     val killSwitch = KillSwitches.shared("numFatalErrors")
     val numFatalErrors = new AtomicInteger(maxGoogleAPIFatalErrors - 1)
     val countAndFilterFatalErrors: Flow[GoogleApiResult, GoogleApiResponse, NotUsed] =
@@ -82,7 +81,7 @@ class GoogleApi extends StrictLogging{
       }.mapConcat(identity)
 
     val googleApiResponse: Source[GoogleApiResult, NotUsed] =
-      DAO.getAddressesWithEmptyGoogleResponseFromDatabase(connection, tableName, maxEntries)
+      daos.getAddressesWithEmptyGoogleResponseFromDatabase(tableName, maxEntries)
         .throttle(maxGoogleAPIOpenRequests, throttleGoogleAPIOpenRequests, 0, ThrottleMode.Shaping)
         .via(queryGoogleApiFlow)
         .mapMaterializedValue(_ => NotUsed)
@@ -91,9 +90,7 @@ class GoogleApi extends StrictLogging{
       .recoverWithRetries(-1, { case _ => googleApiResponse })
       .via(killSwitch.flow)
       .via(countAndFilterFatalErrors)
-      .alsoTo(Sink.foreachParallel(maxGoogleAPIOpenRequests)(
-        DAO.saveGoogleResponse(connection, tableName)
-      ))
+      .alsoTo(daos.saveGoogleResponse(tableName))
 
     }
 

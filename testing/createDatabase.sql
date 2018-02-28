@@ -31,7 +31,7 @@ CREATE PROCEDURE InsertAddresses(IN NumRows INT)
     END$$
 DELIMITER ;
 
--- CALL InsertAddresses(10);
+ CALL InsertAddresses(10);
 
 
 insert into addresses (unformattedAddress) values
