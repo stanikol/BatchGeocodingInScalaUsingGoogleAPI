@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export googleApiKey=AIzaSyAl3u33Ea4Nw31iVKP5uPE4KfwW-vnXawc
+#export googleApiKey=AIzaSyAl3u33Ea4Nw31iVKP5uPE4KfwW
 export dbUrl="jdbc:mysql://localhost/test?user=root&useSSL=false&useUnicode=yes&characterEncoding=utf8"
 #export dbUrl="jdbc:mysql://localhost"
 

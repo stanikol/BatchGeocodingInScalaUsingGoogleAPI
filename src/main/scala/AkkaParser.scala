@@ -37,11 +37,11 @@ object AkkaParser extends LazyLogging {
             .runWith(daos.saveAddressParsingResult(config.tableName))
               .foreach(_ => terminateSystem())
     } else if(config.op == "googleQueryOnly" || config.op == "googleQueryAndParse") {
-//        val googleApi = new GoogleApi
-        val googleApi = new GoogleApi {
-          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
-            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
-        }
+        val googleApi = new GoogleApi
+//        val googleApi = new GoogleApi {
+//          override def buildUrl(googleApiKey: String, unformattedAddress: String): String =
+//            s"http://localhost:12500/test?a=${URLEncoder.encode(unformattedAddress, "utf-8")}"
+//        }
         val googleApiResponse: Source[GoogleApiResponse, NotUsed] =
           googleApi buildFlow(daos,
                               config.tableName,
